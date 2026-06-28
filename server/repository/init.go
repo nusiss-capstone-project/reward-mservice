@@ -2,9 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
+	"os"
 
-	"github.com/nusiss-capstone-project/reward-mservice/server/config"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
