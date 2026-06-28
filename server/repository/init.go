@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/__TEMPLATE_ORG__/__TEMPLATE_REPO__/server/config"
-	"github.com/__TEMPLATE_ORG__/__TEMPLATE_REPO__/server/repository/model"
+	"github.com/nusiss-capstone-project/reward-mservice/server/config"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
