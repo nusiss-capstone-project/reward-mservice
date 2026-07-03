@@ -23,10 +23,10 @@ type ItemDaoImpl struct {
 
 var (
 	itemOnce sync.Once
-	itemDao  *ItemDaoImpl
+	itemDao  ItemDao
 )
 
-func GetItemDao() *ItemDaoImpl {
+func GetItemDao() ItemDao {
 	itemOnce.Do(func() {
 		if itemDao == nil {
 			itemDao = &ItemDaoImpl{db: repository.DB}

@@ -40,6 +40,20 @@ func NewRouter() *gin.Engine {
 		})
 		basicGroup.POST("/items", api.CreateItem)
 		basicGroup.GET("/items/:item_id", api.GetItems)
+
+		adminGroup := basicGroup.Group("/admin")
+		{
+			adminGroup.POST("/projects", api.CreateProject)
+			adminGroup.GET("/projects", api.ListProjects)
+
+			adminGroup.POST("/finance-docs", api.CreateFinanceDoc)
+			adminGroup.GET("/finance-docs", api.ListFinanceDocs)
+			adminGroup.GET("/finance-docs/:doc_id", api.GetFinanceDocDetail)
+			adminGroup.PATCH("/finance-docs/:doc_id/submission", api.SubmitFinanceDocForApproval)
+			adminGroup.PATCH("/finance-docs/:doc_id/approval", api.ApproveFinanceDoc)
+
+			adminGroup.GET("/payment-configs", api.ListPaymentConfigs)
+		}
 	}
 	return r
 }
@@ -49,7 +63,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),
 		AllowMethods: []string{
-			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+			"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
 		},
 		AllowHeaders: []string{
 			"Origin", "Content-Type", "Accept", "Authorization", log.RequestIDHeader,
