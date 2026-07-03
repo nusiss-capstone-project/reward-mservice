@@ -9,6 +9,8 @@ const (
 	CodeInvalidStatusTransition = 40002
 	CodeInvalidPayAddress       = 40003
 	CodeInvalidPagination       = 40004
+	CodeFinanceDocProjectExists = 40005
+	CodeDuplicateBudgetPair     = 40006
 
 	CodeProjectNotFound    = 40401
 	CodeFinanceDocNotFound = 40402
@@ -23,6 +25,8 @@ var messages = map[int]string{
 	CodeInvalidStatusTransition: "invalid status transition",
 	CodeInvalidPayAddress:       "invalid pay address",
 	CodeInvalidPagination:       "invalid pagination parameters",
+	CodeFinanceDocProjectExists: "finance doc already exists for project",
+	CodeDuplicateBudgetPair:     "duplicate voucher_type and unit in application_detail",
 
 	CodeProjectNotFound:    "project not found",
 	CodeFinanceDocNotFound: "finance doc not found",

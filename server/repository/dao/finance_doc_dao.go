@@ -13,6 +13,7 @@ import (
 type FinanceDocDao interface {
 	Create(ctx context.Context, doc *model.FinanceDoc) error
 	GetByDocID(ctx context.Context, docID string) (*model.FinanceDoc, error)
+	ExistsByProjectID(ctx context.Context, projectID int64) (bool, error)
 	List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error)
 	UpdateStatus(ctx context.Context, docID, status, remark string) error
 }
@@ -52,6 +53,18 @@ func (d *FinanceDocDaoImpl) GetByDocID(ctx context.Context, docID string) (*mode
 		return nil, err
 	}
 	return &doc, nil
+}
+
+func (d *FinanceDocDaoImpl) ExistsByProjectID(ctx context.Context, projectID int64) (bool, error) {
+	var count int64
+	err := d.db.WithContext(ctx).Model(&model.FinanceDoc{}).
+		Where("project_id = ?", projectID).
+		Count(&count).Error
+	if err != nil {
+		log.WithContext(ctx).Errorf("failed to check finance doc by project: %v", err)
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (d *FinanceDocDaoImpl) List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error) {

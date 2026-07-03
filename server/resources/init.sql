@@ -31,9 +31,29 @@ CREATE TABLE IF NOT EXISTS finance_docs (
     created_at          DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at          DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     PRIMARY KEY (doc_id),
-    KEY idx_finance_docs_project_id (project_id),
+    UNIQUE KEY uk_finance_docs_project_id (project_id),
     KEY idx_finance_docs_status (status),
     CONSTRAINT fk_finance_docs_project FOREIGN KEY (project_id) REFERENCES projects (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS project_budget (
+    id               BIGINT         NOT NULL AUTO_INCREMENT,
+    finance_doc_id   VARCHAR(64)    NOT NULL,
+    project_id       BIGINT         NOT NULL,
+    voucher_type     VARCHAR(64)    NOT NULL,
+    unit             VARCHAR(32)    NOT NULL,
+    total_amount     DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    available_amount DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    withold_amount   DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    issued_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    refund_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    created_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_project_budget_doc (finance_doc_id, voucher_type, unit),
+    UNIQUE KEY uk_project_budget_project (project_id, voucher_type, unit),
+    CONSTRAINT fk_project_budget_project FOREIGN KEY (project_id) REFERENCES projects (id),
+    CONSTRAINT fk_project_budget_finance_doc FOREIGN KEY (finance_doc_id) REFERENCES finance_docs (doc_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO payment_configs (pay_address, voucher_type, payment_account) VALUES

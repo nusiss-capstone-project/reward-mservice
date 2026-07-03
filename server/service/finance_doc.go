@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
@@ -61,12 +62,14 @@ type FinanceDocService interface {
 	ListFinanceDocs(ctx context.Context, page, size int) (*data.PageResult, error)
 	GetFinanceDocDetail(ctx context.Context, docID string) (*data.FinanceDocVO, error)
 	UpdateFinanceDocStatus(ctx context.Context, docID string, req *data.UpdateFinanceDocRequest) (*data.UpdateFinanceDocResponse, error)
+	ApproveFinanceDoc(ctx context.Context, docID string, req *data.ApproveFinanceDocRequest) (*data.UpdateFinanceDocResponse, error)
 }
 
 type FinanceDocServiceImpl struct {
-	financeDocDao    dao.FinanceDocDao
-	projectDao       dao.ProjectDao
-	paymentConfigDao dao.PaymentConfigDao
+	financeDocDao              dao.FinanceDocDao
+	projectDao                 dao.ProjectDao
+	paymentConfigDao           dao.PaymentConfigDao
+	financeDocApprovedProducer producer.FinanceDocApprovedProducer
 }
 
 var (
@@ -77,9 +80,10 @@ var (
 func GetFinanceDocService() FinanceDocService {
 	financeDocServiceOnce.Do(func() {
 		financeDocServiceInst = &FinanceDocServiceImpl{
-			financeDocDao:    dao.GetFinanceDocDao(),
-			projectDao:       dao.GetProjectDao(),
-			paymentConfigDao: dao.GetPaymentConfigDao(),
+			financeDocDao:              dao.GetFinanceDocDao(),
+			projectDao:                 dao.GetProjectDao(),
+			paymentConfigDao:           dao.GetPaymentConfigDao(),
+			financeDocApprovedProducer: producer.GetFinanceDocApprovedProducer(),
 		}
 	})
 	return financeDocServiceInst
@@ -106,25 +110,18 @@ func (s *FinanceDocServiceImpl) CreateFinanceDoc(ctx context.Context, req *data.
 		return "", errs.New(errs.CodeProjectNotFound, "")
 	}
 
-	payAddresses := make([]string, 0, len(req.ApplicationDetail))
-	for _, item := range req.ApplicationDetail {
-		if strings.TrimSpace(item.PayAddress) == "" ||
-			strings.TrimSpace(item.Amount) == "" ||
-			strings.TrimSpace(item.Unit) == "" {
-			return "", errs.New(errs.CodeInvalidRequest, "application_detail fields are required")
-		}
-		payAddresses = append(payAddresses, strings.TrimSpace(item.PayAddress))
-	}
-
-	existing, err := s.paymentConfigDao.FindExistingPayAddresses(ctx, payAddresses)
+	exists, err := s.financeDocDao.ExistsByProjectID(ctx, req.ProjectID)
 	if err != nil {
-		logger.Errorf("validate pay addresses failed: %v", err)
+		logger.Errorf("check finance doc by project failed: %v", err)
 		return "", errs.Wrap(errs.CodeInternalError, err)
 	}
-	for _, addr := range payAddresses {
-		if _, ok := existing[addr]; !ok {
-			return "", errs.New(errs.CodeInvalidPayAddress, "pay address not found: "+addr)
-		}
+	if exists {
+		return "", errs.New(errs.CodeFinanceDocProjectExists, "")
+	}
+
+	detailItems := toApplicationDetailItems(req.ApplicationDetail)
+	if _, err := resolveBudgetItems(ctx, s.paymentConfigDao, detailItems); err != nil {
+		return "", err
 	}
 
 	creator := strings.TrimSpace(req.Creator)
@@ -132,7 +129,7 @@ func (s *FinanceDocServiceImpl) CreateFinanceDoc(ctx context.Context, req *data.
 		creator = defaultCreator
 	}
 
-	detailJSON, err := json.Marshal(req.ApplicationDetail)
+	detailJSON, err := json.Marshal(detailItems)
 	if err != nil {
 		logger.Errorf("marshal application detail failed: %v", err)
 		return "", errs.Wrap(errs.CodeInternalError, err)
@@ -241,6 +238,46 @@ func (s *FinanceDocServiceImpl) UpdateFinanceDocStatus(
 		Status: targetStatus,
 		Remark: remark,
 	}, nil
+}
+
+func (s *FinanceDocServiceImpl) ApproveFinanceDoc(
+	ctx context.Context,
+	docID string,
+	req *data.ApproveFinanceDocRequest,
+) (*data.UpdateFinanceDocResponse, error) {
+	logger := log.WithContext(ctx)
+	if req == nil || strings.TrimSpace(req.Status) == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "status is required")
+	}
+
+	updateReq := &data.UpdateFinanceDocRequest{
+		Status: req.Status,
+		Remark: req.Remark,
+	}
+	resp, err := s.UpdateFinanceDocStatus(ctx, docID, updateReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Status != model.FinanceDocStatusApproved {
+		return resp, nil
+	}
+
+	doc, err := s.financeDocDao.GetByDocID(ctx, resp.DocID)
+	if err != nil {
+		logger.Errorf("load finance doc after approve failed: doc_id=%s err=%v", resp.DocID, err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if doc == nil {
+		return nil, errs.New(errs.CodeFinanceDocNotFound, "")
+	}
+
+	if err := s.financeDocApprovedProducer.PublishFinanceDocApproved(ctx, doc.DocID, doc.ProjectID); err != nil {
+		logger.Errorf("publish finance doc approved event failed: doc_id=%s err=%v", doc.DocID, err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	logger.Infof("finance doc approved event published: doc_id=%s project_id=%d", doc.DocID, doc.ProjectID)
+	return resp, nil
 }
 
 func validateFinanceDocTransition(currentStatus, targetStatus string) error {

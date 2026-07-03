@@ -132,7 +132,7 @@ func SubmitFinanceDocForApproval(c *gin.Context) {
 // ApproveFinanceDoc approves or rejects a finance doc.
 //
 // @Summary Approve or reject finance doc
-// @Description Move finance doc from TO_APPROVE to APPROVED or REJECTED.
+// @Description Move finance doc from TO_APPROVE to APPROVED or REJECTED. When approved, a Kafka event is published to initialize project budget.
 // @Tags Admin-FinanceDoc
 // @Accept json
 // @Produce json
@@ -154,10 +154,7 @@ func ApproveFinanceDoc(c *gin.Context) {
 	}
 
 	docID := c.Param("doc_id")
-	result, err := service.GetFinanceDocService().UpdateFinanceDocStatus(c.Request.Context(), docID, &data.UpdateFinanceDocRequest{
-		Status: req.Status,
-		Remark: req.Remark,
-	})
+	result, err := service.GetFinanceDocService().ApproveFinanceDoc(c.Request.Context(), docID, req)
 	if err != nil {
 		WriteError(c, err)
 		return

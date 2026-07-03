@@ -15,6 +15,7 @@ type Conf struct {
 	LogConfig    *LogConfig    `mapstructure:"log"`
 	HttpConfig   *HttpConfig   `mapstructure:"http"`
 	SystemConfig *SystemConfig `mapstructure:"system"`
+	KafkaConfig  *KafkaConfig  `mapstructure:"kafka"`
 }
 
 type HttpConfig struct {
@@ -36,6 +37,14 @@ type GrpcConfig struct {
 
 type SystemConfig struct {
 	AllowedOrigins []string `mapstructure:"allowed_origins"`
+}
+
+type KafkaConfig struct {
+	Enabled  bool     `mapstructure:"enabled"`
+	Brokers  []string `mapstructure:"brokers"`
+	GroupID  string   `mapstructure:"group_id"`
+	ClientID string   `mapstructure:"client_id"`
+	Topics   []string `mapstructure:"topics"`
 }
 
 func Init() {

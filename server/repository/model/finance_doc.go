@@ -21,7 +21,7 @@ type ApplicationDetailItem struct {
 
 type FinanceDoc struct {
 	DocID             string         `gorm:"primaryKey;type:varchar(64)"`
-	ProjectID         int64          `gorm:"not null;index"`
+	ProjectID         int64          `gorm:"not null;uniqueIndex"`
 	Description       string         `gorm:"type:text"`
 	ApplicationDetail datatypes.JSON `gorm:"type:json;not null"`
 	Creator           string         `gorm:"type:varchar(128);not null"`

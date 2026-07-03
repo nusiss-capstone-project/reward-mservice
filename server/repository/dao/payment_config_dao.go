@@ -13,6 +13,7 @@ import (
 type PaymentConfigDao interface {
 	ListAll(ctx context.Context) ([]*model.PaymentConfig, error)
 	FindExistingPayAddresses(ctx context.Context, payAddresses []string) (map[string]struct{}, error)
+	MapByPayAddresses(ctx context.Context, payAddresses []string) (map[string]*model.PaymentConfig, error)
 }
 
 type PaymentConfigDaoImpl struct {
@@ -66,6 +67,36 @@ func (d *PaymentConfigDaoImpl) FindExistingPayAddresses(ctx context.Context, pay
 	}
 	for _, addr := range found {
 		result[addr] = struct{}{}
+	}
+	return result, nil
+}
+
+func (d *PaymentConfigDaoImpl) MapByPayAddresses(ctx context.Context, payAddresses []string) (map[string]*model.PaymentConfig, error) {
+	result := make(map[string]*model.PaymentConfig)
+	if len(payAddresses) == 0 {
+		return result, nil
+	}
+
+	unique := make([]string, 0, len(payAddresses))
+	seen := make(map[string]struct{}, len(payAddresses))
+	for _, addr := range payAddresses {
+		if _, ok := seen[addr]; ok {
+			continue
+		}
+		seen[addr] = struct{}{}
+		unique = append(unique, addr)
+	}
+
+	var configs []*model.PaymentConfig
+	err := d.db.WithContext(ctx).Model(&model.PaymentConfig{}).
+		Where("pay_address IN ?", unique).
+		Find(&configs).Error
+	if err != nil {
+		log.WithContext(ctx).Errorf("failed to map payment configs: %v", err)
+		return nil, err
+	}
+	for _, cfg := range configs {
+		result[cfg.PayAddress] = cfg
 	}
 	return result, nil
 }

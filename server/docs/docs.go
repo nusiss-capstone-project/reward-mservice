@@ -192,7 +192,7 @@ const docTemplate = `{
         },
         "/reward-ms/v1/admin/finance-docs/{doc_id}/approval": {
             "patch": {
-                "description": "Move finance doc from TO_APPROVE to APPROVED or REJECTED.",
+                "description": "Move finance doc from TO_APPROVE to APPROVED or REJECTED. When approved, a Kafka event is published to initialize project budget.",
                 "consumes": [
                     "application/json"
                 ],

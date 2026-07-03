@@ -39,6 +39,7 @@ func Init() {
 		&model.Project{},
 		&model.PaymentConfig{},
 		&model.FinanceDoc{},
+		&model.ProjectBudget{},
 	)
 	if err != nil {
 		panic(err)

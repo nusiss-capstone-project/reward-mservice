@@ -11,7 +11,8 @@ import (
 
 func HTTPStatusFromCode(code int) int {
 	switch code {
-	case errs.CodeInvalidRequest, errs.CodeInvalidStatusTransition, errs.CodeInvalidPayAddress, errs.CodeInvalidPagination:
+	case errs.CodeInvalidRequest, errs.CodeInvalidStatusTransition, errs.CodeInvalidPayAddress, errs.CodeInvalidPagination,
+		errs.CodeFinanceDocProjectExists, errs.CodeDuplicateBudgetPair:
 		return http.StatusBadRequest
 	case errs.CodeProjectNotFound, errs.CodeFinanceDocNotFound:
 		return http.StatusNotFound
