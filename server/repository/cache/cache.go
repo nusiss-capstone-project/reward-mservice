@@ -61,7 +61,7 @@ func (c *Cache[T]) Delete(key string) {
 func isNilValue[T any](v T) bool {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
-	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface, reflect.Chan, reflect.Func:
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface, reflect.Chan, reflect.Func:
 		return rv.IsNil()
 	default:
 		return false

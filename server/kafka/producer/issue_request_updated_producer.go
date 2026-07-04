@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-const IssueRequestUpdatedTopic = "reward.issue_request.updated"
+const IssueRequestUpdatedTopic = "reward.issue_request.approved"
 
 type IssueRequestUpdatedEvent struct {
 	IssueRequestID int64 `json:"issue_request_id"`

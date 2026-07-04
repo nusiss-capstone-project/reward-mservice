@@ -26,4 +26,4 @@ kafka:
   client_id: reward-mservice
   topics:
     - reward.finance_doc.approved
-    - reward.issue_request.updated
+    - reward.issue_request.approved
