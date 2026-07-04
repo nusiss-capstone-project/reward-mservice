@@ -2,24 +2,31 @@ package dao
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/cache"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"gorm.io/gorm"
 )
 
+const (
+	paymentConfigCacheTTL     = 5 * time.Minute
+	paymentConfigCacheCleanup = 10 * time.Minute
+	paymentConfigCacheKeyFmt  = "payment_config:%s"
+)
+
 type PaymentConfigDao interface {
 	ListAll(ctx context.Context) ([]*model.PaymentConfig, error)
-	FindExistingPayAddresses(ctx context.Context, payAddresses []string) (map[string]struct{}, error)
-	MapByPayAddresses(ctx context.Context, payAddresses []string) (map[string]*model.PaymentConfig, error)
 	GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error)
-	GetByPayAddressAndUnit(ctx context.Context, payAddress, unit string) (*model.PaymentConfig, error)
 }
 
 type PaymentConfigDaoImpl struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache *cache.Cache[*model.PaymentConfig]
 }
 
 var (
@@ -29,9 +36,16 @@ var (
 
 func GetPaymentConfigDao() PaymentConfigDao {
 	paymentConfigOnce.Do(func() {
-		paymentConfigDao = &PaymentConfigDaoImpl{db: repository.DB}
+		paymentConfigDao = &PaymentConfigDaoImpl{
+			db:    repository.DB,
+			cache: cache.NewCache[*model.PaymentConfig](paymentConfigCacheTTL, paymentConfigCacheCleanup),
+		}
 	})
 	return paymentConfigDao
+}
+
+func paymentConfigCacheKey(payAddress string) string {
+	return fmt.Sprintf(paymentConfigCacheKeyFmt, payAddress)
 }
 
 func (d *PaymentConfigDaoImpl) ListAll(ctx context.Context) ([]*model.PaymentConfig, error) {
@@ -43,67 +57,13 @@ func (d *PaymentConfigDaoImpl) ListAll(ctx context.Context) ([]*model.PaymentCon
 	return configs, nil
 }
 
-func (d *PaymentConfigDaoImpl) FindExistingPayAddresses(ctx context.Context, payAddresses []string) (map[string]struct{}, error) {
-	result := make(map[string]struct{})
-	if len(payAddresses) == 0 {
-		return result, nil
-	}
-
-	unique := make([]string, 0, len(payAddresses))
-	seen := make(map[string]struct{}, len(payAddresses))
-	for _, addr := range payAddresses {
-		if _, ok := seen[addr]; ok {
-			continue
-		}
-		seen[addr] = struct{}{}
-		unique = append(unique, addr)
-	}
-
-	var found []string
-	err := d.db.WithContext(ctx).Model(&model.PaymentConfig{}).
-		Where("pay_address IN ?", unique).
-		Pluck("pay_address", &found).Error
-	if err != nil {
-		log.WithContext(ctx).Errorf("failed to batch check payment configs: %v", err)
-		return nil, err
-	}
-	for _, addr := range found {
-		result[addr] = struct{}{}
-	}
-	return result, nil
-}
-
-func (d *PaymentConfigDaoImpl) MapByPayAddresses(ctx context.Context, payAddresses []string) (map[string]*model.PaymentConfig, error) {
-	result := make(map[string]*model.PaymentConfig)
-	if len(payAddresses) == 0 {
-		return result, nil
-	}
-
-	unique := make([]string, 0, len(payAddresses))
-	seen := make(map[string]struct{}, len(payAddresses))
-	for _, addr := range payAddresses {
-		if _, ok := seen[addr]; ok {
-			continue
-		}
-		seen[addr] = struct{}{}
-		unique = append(unique, addr)
-	}
-
-	var configs []*model.PaymentConfig
-	err := d.db.WithContext(ctx).Model(&model.PaymentConfig{}).
-		Where("pay_address IN ?", unique).
-		Find(&configs).Error
-	if err != nil {
-		log.WithContext(ctx).Errorf("failed to map payment configs: %v", err)
-		return nil, err
-	}
-	for _, cfg := range configs {
-		result[cfg.PayAddress] = cfg
-	}
-	return result, nil
-}
-
 func (d *PaymentConfigDaoImpl) GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error) {
+	return d.cache.GetWithLoad(ctx, paymentConfigCacheKey(payAddress), func(ctx context.Context) (*model.PaymentConfig, error) {
+		return d.getByPayAddressFromDB(ctx, payAddress)
+	})
+}
+
+func (d *PaymentConfigDaoImpl) getByPayAddressFromDB(ctx context.Context, payAddress string) (*model.PaymentConfig, error) {
 	var cfg model.PaymentConfig
 	err := d.db.WithContext(ctx).
 		Where("pay_address = ?", payAddress).
@@ -113,21 +73,6 @@ func (d *PaymentConfigDaoImpl) GetByPayAddress(ctx context.Context, payAddress s
 			return nil, nil
 		}
 		log.WithContext(ctx).Errorf("failed to get payment config: pay_address=%s err=%v", payAddress, err)
-		return nil, err
-	}
-	return &cfg, nil
-}
-
-func (d *PaymentConfigDaoImpl) GetByPayAddressAndUnit(ctx context.Context, payAddress, unit string) (*model.PaymentConfig, error) {
-	var cfg model.PaymentConfig
-	err := d.db.WithContext(ctx).
-		Where("pay_address = ? AND unit = ?", payAddress, unit).
-		First(&cfg).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		log.WithContext(ctx).Errorf("failed to get payment config: pay_address=%s unit=%s err=%v", payAddress, unit, err)
 		return nil, err
 	}
 	return &cfg, nil

@@ -81,7 +81,6 @@ func (s *ProjectBudgetServiceImpl) InitFromApprovedDoc(ctx context.Context, docI
 	})
 	if err != nil {
 		if errors.Is(err, dao.ErrBudgetAlreadyExists) {
-
 			logger.Infof("project budget already initialized: doc_id=%s", docID)
 			return nil
 

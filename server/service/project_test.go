@@ -108,3 +108,38 @@ func TestGetProjectByIDNotFound(t *testing.T) {
 	assert.ErrorAs(t, err, &appErr)
 	assert.Equal(t, errs.CodeProjectNotFound, appErr.Code)
 }
+
+func TestGetProjectByIDSuccess(t *testing.T) {
+	initServiceTestEnv()
+	projectDao := new(mockProjectDao)
+	svc := &ProjectServiceImpl{projectDao: projectDao}
+
+	projectDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.Project{ID: 1, Name: "P1", Description: "D1"}, nil).Once()
+
+	vo, err := svc.GetProjectByID(context.Background(), 1)
+	assert.NoError(t, err)
+	assert.Equal(t, "P1", vo.Name)
+}
+
+func TestGetProjectByIDInvalidID(t *testing.T) {
+	initServiceTestEnv()
+	svc := &ProjectServiceImpl{projectDao: new(mockProjectDao)}
+
+	_, err := svc.GetProjectByID(context.Background(), 0)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestListProjectsInvalidPagination(t *testing.T) {
+	initServiceTestEnv()
+	svc := &ProjectServiceImpl{projectDao: new(mockProjectDao)}
+
+	_, err := svc.ListProjects(context.Background(), 0, 20)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidPagination, appErr.Code)
+}

@@ -149,7 +149,7 @@ func (d *ProjectBudgetDaoImpl) ApplySubmitWithhold(ctx context.Context, tx *gorm
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
 			"available_amount": gorm.Expr("available_amount - ?", amount),
-			"withold_amount":   gorm.Expr("withold_amount + ?", amount),
+			"withhold_amount":   gorm.Expr("withhold_amount + ?", amount),
 		})
 	if result.Error != nil {
 		log.WithContext(ctx).Errorf("apply submit withhold failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
@@ -163,7 +163,7 @@ func (d *ProjectBudgetDaoImpl) ApplyApproveIssued(ctx context.Context, tx *gorm.
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
 			"issued_amount":  gorm.Expr("issued_amount + ?", amount),
-			"withold_amount": gorm.Expr("withold_amount - ?", amount),
+			"withhold_amount": gorm.Expr("withhold_amount - ?", amount),
 		})
 	if result.Error != nil {
 		log.WithContext(ctx).Errorf("apply approve issued failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
@@ -177,7 +177,7 @@ func (d *ProjectBudgetDaoImpl) ApplyRejectRelease(ctx context.Context, tx *gorm.
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
 			"available_amount": gorm.Expr("available_amount + ?", amount),
-			"withold_amount":   gorm.Expr("withold_amount - ?", amount),
+			"withhold_amount":   gorm.Expr("withhold_amount - ?", amount),
 		})
 	if result.Error != nil {
 		log.WithContext(ctx).Errorf("apply reject release failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)

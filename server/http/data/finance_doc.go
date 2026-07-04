@@ -3,7 +3,6 @@ package data
 type ApplicationDetailItemVO struct {
 	PayAddress string `json:"pay_address" binding:"required"`
 	Amount     string `json:"amount" binding:"required"`
-	Unit       string `json:"unit" binding:"required"`
 }
 
 type CreateFinanceDocRequest struct {

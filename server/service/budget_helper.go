@@ -26,33 +26,25 @@ func resolveBudgetItems(
 		return nil, errs.New(errs.CodeInvalidRequest, "application_detail is empty")
 	}
 
-	payAddresses := make([]string, 0, len(detail))
-	for _, item := range detail {
-		if strings.TrimSpace(item.PayAddress) == "" ||
-			strings.TrimSpace(item.Amount) == "" ||
-			strings.TrimSpace(item.Unit) == "" {
-			return nil, errs.New(errs.CodeInvalidRequest, "application_detail fields are required")
-		}
-		payAddresses = append(payAddresses, strings.TrimSpace(item.PayAddress))
-	}
-
-	configMap, err := paymentConfigDao.MapByPayAddresses(ctx, payAddresses)
-	if err != nil {
-		return nil, errs.Wrap(errs.CodeInternalError, err)
-	}
-
 	items := make([]budgetItem, 0, len(detail))
 	seen := make(map[string]struct{}, len(detail))
 	for _, item := range detail {
+		if strings.TrimSpace(item.PayAddress) == "" ||
+			strings.TrimSpace(item.Amount) == "" {
+			return nil, errs.New(errs.CodeInvalidRequest, "application_detail fields are required")
+		}
+
 		payAddress := strings.TrimSpace(item.PayAddress)
-		unit := strings.TrimSpace(item.Unit)
 		amount := strings.TrimSpace(item.Amount)
-		cfg, ok := configMap[payAddress]
-		if !ok {
+		cfg, err := paymentConfigDao.GetByPayAddress(ctx, payAddress)
+		if err != nil {
+			return nil, errs.Wrap(errs.CodeInternalError, err)
+		}
+		if cfg == nil {
 			return nil, errs.New(errs.CodeInvalidPayAddress, "pay address not found: "+payAddress)
 		}
 
-		key := fmt.Sprintf("%s:%s", cfg.VoucherType, unit)
+		key := fmt.Sprintf("%s:%s", cfg.VoucherType, cfg.Unit)
 		if _, ok := seen[key]; ok {
 			return nil, errs.New(errs.CodeDuplicateBudgetPair, "")
 		}
@@ -60,7 +52,7 @@ func resolveBudgetItems(
 
 		items = append(items, budgetItem{
 			VoucherType: cfg.VoucherType,
-			Unit:        unit,
+			Unit:        cfg.Unit,
 			Amount:      amount,
 		})
 	}
@@ -73,7 +65,6 @@ func toApplicationDetailItems(detail []data.ApplicationDetailItemVO) []model.App
 		items = append(items, model.ApplicationDetailItem{
 			PayAddress: strings.TrimSpace(item.PayAddress),
 			Amount:     strings.TrimSpace(item.Amount),
-			Unit:       strings.TrimSpace(item.Unit),
 		})
 	}
 	return items
@@ -89,7 +80,7 @@ func toProjectBudgets(docID string, projectID int64, items []budgetItem) []*mode
 			Unit:            item.Unit,
 			TotalAmount:     "0",
 			AvailableAmount: item.Amount,
-			WitholdAmount:   "0",
+			WithholdAmount:  "0",
 			IssuedAmount:    "0",
 			RefundAmount:    "0",
 		})

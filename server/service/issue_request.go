@@ -320,7 +320,7 @@ func (s *IssueRequestServiceImpl) approveIssueRequestInTx(ctx context.Context, i
 		if err != nil {
 			return err
 		}
-		if err := ensureWithholdGTE(ctx, budget.WitholdAmount, locked.Amount); err != nil {
+		if err := ensureWithholdGTE(ctx, budget.WithholdAmount, locked.Amount); err != nil {
 			return err
 		}
 		if err := s.issueRequestDao.UpdateStatusInTx(ctx, tx, locked.ID, model.IssueRequestStatusToApprove, model.IssueRequestStatusApproved, remark); err != nil {
@@ -348,7 +348,7 @@ func (s *IssueRequestServiceImpl) rejectIssueRequestInTx(ctx context.Context, is
 		if err != nil {
 			return err
 		}
-		if err := ensureWithholdGTE(ctx, budget.WitholdAmount, locked.Amount); err != nil {
+		if err := ensureWithholdGTE(ctx, budget.WithholdAmount, locked.Amount); err != nil {
 			return err
 		}
 		if err := s.issueRequestDao.UpdateStatusInTx(ctx, tx, locked.ID, model.IssueRequestStatusToApprove, model.IssueRequestStatusRejected, remark); err != nil {
@@ -505,7 +505,7 @@ func (s *IssueRequestServiceImpl) ensureWithholdAmount(ctx context.Context, requ
 		return issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), "approve issue request rejected",
 			"issue_request_id", request.ID)
 	}
-	return ensureWithholdGTE(ctx, budget.WitholdAmount, request.Amount)
+	return ensureWithholdGTE(ctx, budget.WithholdAmount, request.Amount)
 }
 
 func (s *IssueRequestServiceImpl) lockProjectBudget(
@@ -544,7 +544,7 @@ func ensureWithholdGTE(ctx context.Context, withhold, amount string) error {
 	}
 	if cmp < 0 {
 		return issueRequestErr(ctx, errs.New(errs.CodeInsufficientWithhold, ""), "insufficient withhold amount",
-			"withold_amount", withhold, "amount", amount)
+			"withhold_amount", withhold, "amount", amount)
 	}
 	return nil
 }

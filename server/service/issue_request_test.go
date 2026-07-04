@@ -6,6 +6,7 @@ import (
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -213,9 +214,9 @@ func TestApproveIssueRequestRejected(t *testing.T) {
 			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
 	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
-		Return(&model.ProjectBudget{ID: 10, WitholdAmount: "50"}, nil).Once()
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
-		Return(&model.ProjectBudget{ID: 10, WitholdAmount: "50"}, nil).Once()
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
 	issueRequestDao.On("UpdateStatusInTx", mock.Anything, mock.Anything, int64(1), model.IssueRequestStatusToApprove, model.IssueRequestStatusRejected, "no").
 		Return(nil).Once()
 	projectBudgetDao.On("ApplyRejectRelease", mock.Anything, mock.Anything, int64(10), "50").Return(nil).Once()
@@ -270,4 +271,548 @@ func TestListIssueRequestsByDocID(t *testing.T) {
 	result, err := svc.ListIssueRequestsByDocID(context.Background(), "doc-1", 1, 20)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), result.Total)
+}
+
+func TestUpdateIssueRequestSuccess(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	producer := new(mockIssueRequestUpdatedProducer)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, issueBudgetDao, producer)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
+	issueRequestDao.On("UpdateFields", mock.Anything, int64(1), "crypto", "USD", "60", "updated").
+		Return(nil).Once()
+
+	result, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
+		VoucherType: "crypto",
+		Unit:        "USD",
+		Amount:      "60",
+		Remark:      "updated",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "60", result.Amount)
+	assert.Equal(t, "updated", result.Remark)
+}
+
+func TestUpdateIssueRequestNotEditable(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	producer := new(mockIssueRequestUpdatedProducer)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, issueBudgetDao, producer)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+
+	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
+		VoucherType: "crypto",
+		Unit:        "USD",
+		Amount:      "60",
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidStatusTransition, appErr.Code)
+}
+
+func TestApproveIssueRequestApproved(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	producer := new(mockIssueRequestUpdatedProducer)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, issueBudgetDao, producer)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{WithholdAmount: "50"}, nil).Once()
+	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
+	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
+	issueRequestDao.On("UpdateStatusInTx", mock.Anything, mock.Anything, int64(1), model.IssueRequestStatusToApprove, model.IssueRequestStatusApproved, "ok").
+		Return(nil).Once()
+	projectBudgetDao.On("ApplyApproveIssued", mock.Anything, mock.Anything, int64(10), "50").Return(nil).Once()
+	producer.On("PublishIssueRequestUpdated", mock.Anything, int64(1)).Return(nil).Once()
+
+	result, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
+		Status: model.IssueRequestStatusApproved,
+		Remark: "ok",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, model.IssueRequestStatusApproved, result.RequestStatus)
+}
+
+func TestApproveIssueRequestInsufficientWithhold(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	producer := new(mockIssueRequestUpdatedProducer)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, issueBudgetDao, producer)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{WithholdAmount: "10"}, nil).Once()
+
+	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
+		Status: model.IssueRequestStatusApproved,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInsufficientWithhold, appErr.Code)
+}
+
+func TestParseIssueRequestID(t *testing.T) {
+	id, err := ParseIssueRequestID("42")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(42), id)
+
+	_, err = ParseIssueRequestID("")
+	assert.Error(t, err)
+
+	_, err = ParseIssueRequestID("abc")
+	assert.Error(t, err)
+}
+
+func TestProcessKafkaEventSkipOngoing(t *testing.T) {
+	initServiceTestEnv()
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(new(mockFinanceDocDao), new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, RequestStatus: model.IssueRequestStatusOngoing}, nil).Once()
+
+	err := svc.ProcessKafkaEvent(context.Background(), 1)
+	assert.NoError(t, err)
+}
+
+func TestProcessKafkaEventSkipNonApproved(t *testing.T) {
+	initServiceTestEnv()
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(new(mockFinanceDocDao), new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	err := svc.ProcessKafkaEvent(context.Background(), 1)
+	assert.NoError(t, err)
+}
+
+func TestListIssueRequestsInvalidPagination(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+
+	_, err := svc.ListIssueRequestsByDocID(context.Background(), "doc-1", 0, 20)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidPagination, appErr.Code)
+}
+
+func TestCreateIssueRequestInvalidExpenseType(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+
+	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+		VoucherType: "crypto",
+		Unit:        "USD",
+		Amount:      "10",
+		ExpenseType: "INVALID",
+	})
+	assert.Error(t, err)
+}
+
+func TestIssueRequestNotFoundForDoc(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
+
+	_, err := svc.SubmitIssueRequest(context.Background(), "doc-1", 99, &data.SubmitIssueRequestRequest{
+		Status: model.IssueRequestStatusToApprove,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeIssueRequestNotFound, appErr.Code)
+}
+
+func TestSubmitIssueRequestFromRejected(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
+	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
+	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
+		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
+	issueRequestDao.On("UpdateStatusInTx", mock.Anything, mock.Anything, int64(1), model.IssueRequestStatusRejected, model.IssueRequestStatusToApprove, "retry").
+		Return(nil).Once()
+	projectBudgetDao.On("ApplySubmitWithhold", mock.Anything, mock.Anything, int64(10), "50").Return(nil).Once()
+
+	result, err := svc.SubmitIssueRequest(context.Background(), "doc-1", 1, &data.SubmitIssueRequestRequest{
+		Status: model.IssueRequestStatusToApprove,
+		Remark: "retry",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, model.IssueRequestStatusToApprove, result.RequestStatus)
+}
+
+func TestSubmitIssueRequestInvalidStatus(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	_, err := svc.SubmitIssueRequest(context.Background(), "doc-1", 1, &data.SubmitIssueRequestRequest{
+		Status: model.IssueRequestStatusApproved,
+	})
+	assert.Error(t, err)
+}
+
+func TestProcessKafkaEventInitIssueBudgetAlreadyExists(t *testing.T) {
+	initServiceTestEnv()
+	issueRequestDao := new(mockIssueRequestDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	svc := newIssueRequestService(new(mockFinanceDocDao), new(mockProjectBudgetDao), issueRequestDao, issueBudgetDao, new(mockIssueRequestUpdatedProducer))
+
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+		}, nil).Once()
+	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+		}, nil).Once()
+	issueBudgetDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueBudget")).
+		Return(dao.ErrIssueBudgetAlreadyExists).Once()
+	issueRequestDao.On("MarkOngoing", mock.Anything, mock.Anything, int64(1)).Return(nil).Once()
+
+	err := svc.ProcessKafkaEvent(context.Background(), 1)
+	assert.NoError(t, err)
+}
+
+func TestCreateIssueRequestNilRequest(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+
+	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", nil)
+	assert.Error(t, err)
+}
+
+func TestCreateIssueRequestDocNotApproved(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
+
+	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeFinanceDocNotApproved, appErr.Code)
+}
+
+func TestApproveIssueRequestUnsupportedStatus(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusToApprove}, nil).Once()
+
+	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
+		Status: model.IssueRequestStatusToApprove,
+	})
+	assert.Error(t, err)
+}
+
+func TestApproveIssueRequestNilRequest(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusToApprove}, nil).Once()
+
+	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, nil)
+	assert.Error(t, err)
+}
+
+func TestUpdateIssueRequestNilRequest(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, nil)
+	assert.Error(t, err)
+}
+
+func TestProcessKafkaEventNotFound(t *testing.T) {
+	initServiceTestEnv()
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(new(mockFinanceDocDao), new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	issueRequestDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
+
+	err := svc.ProcessKafkaEvent(context.Background(), 99)
+	assert.Error(t, err)
+}
+
+func TestIssueRequestWrongProject(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 2, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
+		VoucherType: "crypto", Unit: "USD", Amount: "10",
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeIssueRequestNotFound, appErr.Code)
+}
+
+func TestCreateIssueRequestBudgetNotFound(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(nil, nil).Once()
+
+	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeProjectBudgetNotFound, appErr.Code)
+}
+
+func TestApproveIssueRequestInvalidTransition(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
+		Status: model.IssueRequestStatusApproved,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidStatusTransition, appErr.Code)
+}
+
+func TestSubmitIssueRequestInsufficientAvailableInTx(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
+	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "10"}, nil).Once()
+	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
+		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "10"}, nil).Once()
+
+	_, err := svc.SubmitIssueRequest(context.Background(), "doc-1", 1, &data.SubmitIssueRequestRequest{
+		Status: model.IssueRequestStatusToApprove,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInsufficientAvailable, appErr.Code)
+}
+
+func TestCreateIssueRequestCreateFailed(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
+	issueRequestDao.On("Create", mock.Anything, mock.AnythingOfType("*model.IssueRequest")).Return(assert.AnError).Once()
+
+	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+	})
+	assert.Error(t, err)
+}
+
+func TestUpdateIssueRequestInvalidAmount(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := newIssueRequestService(financeDocDao, new(mockProjectBudgetDao), issueRequestDao, new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
+
+	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
+		VoucherType: "crypto", Unit: "USD", Amount: "bad",
+	})
+	assert.Error(t, err)
+}
+
+func TestListIssueRequestsEmptyDocID(t *testing.T) {
+	initServiceTestEnv()
+	svc := newIssueRequestService(new(mockFinanceDocDao), new(mockProjectBudgetDao), new(mockIssueRequestDao), new(mockIssueBudgetDao), new(mockIssueRequestUpdatedProducer))
+
+	_, err := svc.ListIssueRequestsByDocID(context.Background(), " ", 1, 20)
+	assert.Error(t, err)
+}
+
+func TestApproveIssueRequestPublishFailure(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	producer := new(mockIssueRequestUpdatedProducer)
+	svc := newIssueRequestService(financeDocDao, projectBudgetDao, issueRequestDao, new(mockIssueBudgetDao), producer)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
+	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{WithholdAmount: "50"}, nil).Once()
+	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
+		Return(&model.IssueRequest{
+			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+		}, nil).Once()
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
+	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
+		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
+	issueRequestDao.On("UpdateStatusInTx", mock.Anything, mock.Anything, int64(1), model.IssueRequestStatusToApprove, model.IssueRequestStatusApproved, "ok").
+		Return(nil).Once()
+	projectBudgetDao.On("ApplyApproveIssued", mock.Anything, mock.Anything, int64(10), "50").Return(nil).Once()
+	producer.On("PublishIssueRequestUpdated", mock.Anything, int64(1)).Return(assert.AnError).Once()
+
+	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
+		Status: model.IssueRequestStatusApproved,
+		Remark: "ok",
+	})
+	assert.Error(t, err)
 }

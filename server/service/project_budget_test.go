@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/stretchr/testify/assert"
@@ -87,7 +88,7 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 	}
 
 	detail, _ := json.Marshal([]model.ApplicationDetailItem{
-		{PayAddress: "0xabc123wallet001", Amount: "100", Unit: "USD"},
+		{PayAddress: "0xabc123wallet001", Amount: "100"},
 	})
 	doc := &model.FinanceDoc{
 		DocID:             "doc-1",
@@ -97,10 +98,8 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 	}
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
-	paymentConfigDao.On("MapByPayAddresses", mock.Anything, []string{"0xabc123wallet001"}).
-		Return(map[string]*model.PaymentConfig{
-			"0xabc123wallet001": {PayAddress: "0xabc123wallet001", VoucherType: "crypto"},
-		}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, []*model.ProjectBudget{
 		{
 			FinanceDocID:    "doc-1",
@@ -109,7 +108,7 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 			Unit:            "USD",
 			TotalAmount:     "0",
 			AvailableAmount: "100",
-			WitholdAmount:   "0",
+			WithholdAmount:  "0",
 			IssuedAmount:    "0",
 			RefundAmount:    "0",
 		},
@@ -132,7 +131,7 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 	}
 
 	detail, _ := json.Marshal([]model.ApplicationDetailItem{
-		{PayAddress: "0xabc123wallet001", Amount: "100", Unit: "USD"},
+		{PayAddress: "0xabc123wallet001", Amount: "100"},
 	})
 	doc := &model.FinanceDoc{
 		DocID:             "doc-1",
@@ -142,14 +141,122 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 	}
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
-	paymentConfigDao.On("MapByPayAddresses", mock.Anything, []string{"0xabc123wallet001"}).
-		Return(map[string]*model.PaymentConfig{
-			"0xabc123wallet001": {PayAddress: "0xabc123wallet001", VoucherType: "crypto"},
-		}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(dao.ErrBudgetAlreadyExists).Once()
-	projectBudgetDao.On("CountByFinanceDocID", mock.Anything, "doc-1").Return(int64(1), nil).Once()
 
 	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
 	assert.NoError(t, err)
+}
+
+func TestInitFromApprovedDocEmptyDocID(t *testing.T) {
+	initServiceTestEnv()
+	svc := &ProjectBudgetServiceImpl{txBeginner: passthroughTxBeginner{}}
+
+	err := svc.InitFromApprovedDoc(context.Background(), " ")
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestInitFromApprovedDocNotFound(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := &ProjectBudgetServiceImpl{
+		financeDocDao: financeDocDao,
+		txBeginner:    passthroughTxBeginner{},
+	}
+
+	financeDocDao.On("GetByDocID", mock.Anything, "missing").Return(nil, nil).Once()
+
+	err := svc.InitFromApprovedDoc(context.Background(), "missing")
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeFinanceDocNotFound, appErr.Code)
+}
+
+func TestInitFromApprovedDocNotApproved(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := &ProjectBudgetServiceImpl{
+		financeDocDao: financeDocDao,
+		txBeginner:    passthroughTxBeginner{},
+	}
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
+
+	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidStatusTransition, appErr.Code)
+}
+
+func TestInitFromApprovedDocInvalidPayAddress(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	paymentConfigDao := new(mockPaymentConfigDao)
+	svc := &ProjectBudgetServiceImpl{
+		financeDocDao:    financeDocDao,
+		paymentConfigDao: paymentConfigDao,
+		txBeginner:       passthroughTxBeginner{},
+	}
+
+	detail, _ := json.Marshal([]model.ApplicationDetailItem{
+		{PayAddress: "invalid", Amount: "100"},
+	})
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{
+			DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved, ApplicationDetail: detail,
+		}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "invalid").Return(nil, nil).Once()
+
+	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
+	assert.Error(t, err)
+}
+
+func TestInitFromApprovedDocBatchCreateError(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	paymentConfigDao := new(mockPaymentConfigDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := &ProjectBudgetServiceImpl{
+		financeDocDao:    financeDocDao,
+		paymentConfigDao: paymentConfigDao,
+		projectBudgetDao: projectBudgetDao,
+		txBeginner:       passthroughTxBeginner{},
+	}
+
+	detail, _ := json.Marshal([]model.ApplicationDetailItem{
+		{PayAddress: "0xabc123wallet001", Amount: "100"},
+	})
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{
+			DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved, ApplicationDetail: detail,
+		}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
+		Return(assert.AnError).Once()
+
+	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
+	assert.Error(t, err)
+}
+
+func TestInitFromApprovedDocLoadDocError(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := &ProjectBudgetServiceImpl{
+		financeDocDao: financeDocDao,
+		txBeginner:    passthroughTxBeginner{},
+	}
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(nil, assert.AnError).Once()
+
+	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
+	assert.Error(t, err)
 }

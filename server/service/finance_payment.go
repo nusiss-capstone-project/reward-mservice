@@ -203,7 +203,7 @@ func (s *FinancePaymentServiceImpl) resolvePaymentConfig(
 	ctx context.Context,
 	input *createPaymentInput,
 ) (*model.PaymentConfig, error) {
-	cfg, err := s.paymentConfigDao.GetByPayAddressAndUnit(ctx, input.paymentAddress, input.unit)
+	cfg, err := s.paymentConfigDao.GetByPayAddress(ctx, input.paymentAddress)
 	if err != nil {
 		return nil, paymentErr(ctx, errs.Wrap(errs.CodeInternalError, err), "load payment config failed",
 			"doc_id", input.docID, "payment_address", input.paymentAddress, "unit", input.unit)
@@ -213,6 +213,7 @@ func (s *FinancePaymentServiceImpl) resolvePaymentConfig(
 			"create finance payment rejected", "doc_id", input.docID, "payment_address", input.paymentAddress, "unit", input.unit)
 	}
 	input.voucherType = cfg.VoucherType
+	input.unit = cfg.Unit
 	return cfg, nil
 }
 

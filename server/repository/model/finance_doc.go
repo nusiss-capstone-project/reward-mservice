@@ -16,7 +16,6 @@ const (
 type ApplicationDetailItem struct {
 	PayAddress string `json:"pay_address"`
 	Amount     string `json:"amount"`
-	Unit       string `json:"unit"`
 }
 
 type FinanceDoc struct {

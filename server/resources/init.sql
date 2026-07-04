@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS project_budget (
     unit             VARCHAR(32)    NOT NULL,
     total_amount     DECIMAL(20, 8) NOT NULL DEFAULT 0,
     available_amount DECIMAL(20, 8) NOT NULL DEFAULT 0,
-    withold_amount   DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    withhold_amount  DECIMAL(20, 8) NOT NULL DEFAULT 0,
     issued_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
     refund_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
     created_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
