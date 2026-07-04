@@ -188,38 +188,13 @@ func (s *IssueRequestServiceImpl) ApproveIssueRequest(
 	if err != nil {
 		return nil, err
 	}
-	if req == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired),
-			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
-	}
 
-	targetStatus := strings.ToUpper(strings.TrimSpace(req.Status))
-	if targetStatus != model.IssueRequestStatusApproved && targetStatus != model.IssueRequestStatusRejected {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgUnsupportedTargetStatus),
-			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
-	}
-	if err := validateIssueRequestTransition(request.RequestStatus, targetStatus); err != nil {
+	targetStatus, remark, err := validateApproveIssueRequest(ctx, docID, issueRequestID, request, req)
+	if err != nil {
 		return nil, err
 	}
-	if targetStatus == model.IssueRequestStatusApproved {
-		if err := s.ensureWithholdAmount(ctx, request); err != nil {
-			return nil, err
-		}
-	}
-
-	remark := strings.TrimSpace(req.Remark)
-	if targetStatus == model.IssueRequestStatusApproved {
-		if err := s.approveIssueRequestInTx(ctx, request.ID, remark); err != nil {
-			return nil, err
-		}
-		if err := s.eventProducer.PublishIssueRequestUpdated(ctx, request.ID); err != nil {
-			return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-				errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
-		}
-	} else {
-		if err := s.rejectIssueRequestInTx(ctx, request.ID, remark); err != nil {
-			return nil, err
-		}
+	if err := s.applyIssueRequestApproval(ctx, docID, issueRequestID, request, targetStatus, remark); err != nil {
+		return nil, err
 	}
 
 	return &data.UpdateIssueRequestResponse{
@@ -227,6 +202,62 @@ func (s *IssueRequestServiceImpl) ApproveIssueRequest(
 		RequestStatus: targetStatus,
 		Remark:        remark,
 	}, nil
+}
+
+func validateApproveIssueRequest(
+	ctx context.Context,
+	docID string,
+	issueRequestID int64,
+	request *model.IssueRequest,
+	req *data.ApproveIssueRequestRequest,
+) (string, string, error) {
+	if req == nil {
+		return "", "", issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired),
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
+	}
+
+	targetStatus := strings.ToUpper(strings.TrimSpace(req.Status))
+	if targetStatus != model.IssueRequestStatusApproved && targetStatus != model.IssueRequestStatusRejected {
+		return "", "", issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgUnsupportedTargetStatus),
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
+	}
+	if err := validateIssueRequestTransition(request.RequestStatus, targetStatus); err != nil {
+		return "", "", err
+	}
+	return targetStatus, strings.TrimSpace(req.Remark), nil
+}
+
+func (s *IssueRequestServiceImpl) applyIssueRequestApproval(
+	ctx context.Context,
+	docID string,
+	issueRequestID int64,
+	request *model.IssueRequest,
+	targetStatus, remark string,
+) error {
+	if targetStatus == model.IssueRequestStatusApproved {
+		return s.approveIssueRequest(ctx, docID, issueRequestID, request, remark)
+	}
+	return s.rejectIssueRequestInTx(ctx, request.ID, remark)
+}
+
+func (s *IssueRequestServiceImpl) approveIssueRequest(
+	ctx context.Context,
+	docID string,
+	issueRequestID int64,
+	request *model.IssueRequest,
+	remark string,
+) error {
+	if err := s.ensureWithholdAmount(ctx, request); err != nil {
+		return err
+	}
+	if err := s.approveIssueRequestInTx(ctx, request.ID, remark); err != nil {
+		return err
+	}
+	if err := s.eventProducer.PublishIssueRequestUpdated(ctx, request.ID); err != nil {
+		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
+			errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
+	}
+	return nil
 }
 
 func (s *IssueRequestServiceImpl) ListIssueRequestsByDocID(
