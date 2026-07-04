@@ -35,7 +35,6 @@ func resolveBudgetItems(
 		}
 
 		payAddress := strings.TrimSpace(item.PayAddress)
-		amount := strings.TrimSpace(item.Amount)
 		cfg, err := paymentConfigDao.GetByPayAddress(ctx, payAddress)
 		if err != nil {
 			return nil, errs.Wrap(errs.CodeInternalError, err)
@@ -53,7 +52,7 @@ func resolveBudgetItems(
 		items = append(items, budgetItem{
 			VoucherType: cfg.VoucherType,
 			Unit:        cfg.Unit,
-			Amount:      amount,
+			Amount:      "0",
 		})
 	}
 	return items, nil
