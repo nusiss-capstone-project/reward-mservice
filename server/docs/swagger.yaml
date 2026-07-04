@@ -24,6 +24,18 @@ definitions:
     required:
     - status
     type: object
+  data.ApproveIssueRequestRequest:
+    properties:
+      remark:
+        type: string
+      status:
+        enum:
+        - APPROVED
+        - REJECTED
+        type: string
+    required:
+    - status
+    type: object
   data.BaseResponse:
     properties:
       code:
@@ -66,6 +78,30 @@ definitions:
     - amount
     - payment_address
     - unit
+    type: object
+  data.CreateIssueRequestRequest:
+    properties:
+      amount:
+        type: string
+      creator:
+        type: string
+      expense_type:
+        enum:
+        - REFUND
+        - REWARD
+        - OTHERS
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    required:
+    - amount
+    - expense_type
+    - unit
+    - voucher_type
     type: object
   data.CreateProjectRequest:
     properties:
@@ -131,6 +167,31 @@ definitions:
       updated_at:
         type: string
     type: object
+  data.IssueRequestVO:
+    properties:
+      amount:
+        type: string
+      created_at:
+        type: string
+      creator:
+        type: string
+      expense_type:
+        type: string
+      id:
+        type: integer
+      project_id:
+        type: integer
+      remark:
+        type: string
+      request_status:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      voucher_type:
+        type: string
+    type: object
   data.ItemVO:
     properties:
       id:
@@ -177,6 +238,17 @@ definitions:
       remark:
         type: string
     type: object
+  data.SubmitIssueRequestRequest:
+    properties:
+      remark:
+        type: string
+      status:
+        enum:
+        - TO_APPROVE
+        type: string
+    required:
+    - status
+    type: object
   data.UpdateFinanceDocResponse:
     properties:
       doc_id:
@@ -184,6 +256,30 @@ definitions:
       remark:
         type: string
       status:
+        type: string
+    type: object
+  data.UpdateIssueRequestRequest:
+    properties:
+      amount:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    required:
+    - amount
+    - unit
+    - voucher_type
+    type: object
+  data.UpdateIssueRequestResponse:
+    properties:
+      id:
+        type: integer
+      remark:
+        type: string
+      request_status:
         type: string
     type: object
 info:
@@ -455,6 +551,243 @@ paths:
       summary: Get finance payment
       tags:
       - Admin-FinancePayment
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests:
+    get:
+      description: List issue requests for a finance doc.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List issue requests
+      tags:
+      - Admin-IssueRequest
+    post:
+      consumes:
+      - application/json
+      description: Create an issue request for campaign budget allocation.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.IssueRequestVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}:
+    put:
+      consumes:
+      - application/json
+      description: Update issue request amount, voucher_type and unit in DRAFT or
+        REJECTED status.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Issue request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.IssueRequestVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/approval:
+    patch:
+      consumes:
+      - application/json
+      description: Approve or reject issue request and publish budget update event.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Approval payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.ApproveIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateIssueRequestResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Approve or reject issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/submission:
+    patch:
+      consumes:
+      - application/json
+      description: Submit issue request and publish budget withhold event.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Submit payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.SubmitIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateIssueRequestResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Submit issue request
+      tags:
+      - Admin-IssueRequest
   /reward-ms/v1/admin/finance-docs/{doc_id}/submission:
     patch:
       consumes:

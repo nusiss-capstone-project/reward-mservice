@@ -34,6 +34,33 @@ func (m *mockProjectBudgetDao) GetByDocIDVoucherTypeUnit(ctx context.Context, do
 	return args.Get(0).(*model.ProjectBudget), args.Error(1)
 }
 
+func (m *mockProjectBudgetDao) GetByProjectIDVoucherTypeUnit(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit string,
+) (*model.ProjectBudget, error) {
+	args := m.Called(ctx, projectID, voucherType, unit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ProjectBudget), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyApproveIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
 func (m *mockProjectBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error) {
 	args := m.Called(ctx, tx, budgetID)
 	if args.Get(0) == nil {
@@ -42,8 +69,8 @@ func (m *mockProjectBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budget
 	return args.Get(0).(*model.ProjectBudget), args.Error(1)
 }
 
-func (m *mockProjectBudgetDao) UpdateTotalAmount(ctx context.Context, tx *gorm.DB, budgetID int64, totalAmount string) error {
-	args := m.Called(ctx, tx, budgetID, totalAmount)
+func (m *mockProjectBudgetDao) UpdateTotalAndAvailableAmount(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
 	return args.Error(0)
 }
 

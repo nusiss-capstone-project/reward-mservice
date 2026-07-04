@@ -14,10 +14,10 @@ func HTTPStatusFromCode(code int) int {
 	switch code {
 	case errs.CodeInvalidRequest, errs.CodeInvalidStatusTransition, errs.CodeInvalidPayAddress, errs.CodeInvalidPagination,
 		errs.CodeFinanceDocProjectExists, errs.CodeDuplicateBudgetPair, errs.CodePaymentExceedsDocAmount,
-		errs.CodeFinanceDocNotApproved:
+		errs.CodeFinanceDocNotApproved, errs.CodeInsufficientAvailable, errs.CodeInsufficientWithhold:
 		return http.StatusBadRequest
 	case errs.CodeProjectNotFound, errs.CodeFinanceDocNotFound, errs.CodeProjectBudgetNotFound,
-		errs.CodeFinancePaymentNotFound:
+		errs.CodeFinancePaymentNotFound, errs.CodeIssueRequestNotFound:
 		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
@@ -38,6 +38,9 @@ func WriteError(c *gin.Context, err error) {
 	}
 	if paymentID := c.Param("payment_id"); paymentID != "" {
 		fields = append(fields, "payment_id", paymentID)
+	}
+	if issueRequestID := c.Param("issue_request_id"); issueRequestID != "" {
+		fields = append(fields, "issue_request_id", issueRequestID)
 	}
 	log.LogAppError(c.Request.Context(), err, "http request failed", fields...)
 

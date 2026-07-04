@@ -16,8 +16,12 @@ type ProjectBudgetDao interface {
 	BatchCreate(ctx context.Context, tx *gorm.DB, budgets []*model.ProjectBudget) error
 	CountByFinanceDocID(ctx context.Context, docID string) (int64, error)
 	GetByDocIDVoucherTypeUnit(ctx context.Context, docID, voucherType, unit string) (*model.ProjectBudget, error)
+	GetByProjectIDVoucherTypeUnit(ctx context.Context, projectID int64, voucherType, unit string) (*model.ProjectBudget, error)
 	LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error)
-	UpdateTotalAmount(ctx context.Context, tx *gorm.DB, budgetID int64, totalAmount string) error
+	UpdateTotalAndAvailableAmount(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	ApplyApproveIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
 }
 
 type ProjectBudgetDaoImpl struct {
@@ -82,6 +86,26 @@ func (d *ProjectBudgetDaoImpl) GetByDocIDVoucherTypeUnit(
 	return &budget, nil
 }
 
+func (d *ProjectBudgetDaoImpl) GetByProjectIDVoucherTypeUnit(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit string,
+) (*model.ProjectBudget, error) {
+	var budget model.ProjectBudget
+	err := d.db.WithContext(ctx).
+		Where("project_id = ? AND voucher_type = ? AND unit = ?", projectID, voucherType, unit).
+		First(&budget).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorf("get project budget by project failed: project_id=%d voucher_type=%s unit=%s err=%v",
+			projectID, voucherType, unit, err)
+		return nil, err
+	}
+	return &budget, nil
+}
+
 func (d *ProjectBudgetDaoImpl) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error) {
 	var budget model.ProjectBudget
 	err := dbFrom(d.db, tx).WithContext(ctx).
@@ -99,21 +123,66 @@ func (d *ProjectBudgetDaoImpl) LockByID(ctx context.Context, tx *gorm.DB, budget
 	return &budget, nil
 }
 
-func (d *ProjectBudgetDaoImpl) UpdateTotalAmount(
+func (d *ProjectBudgetDaoImpl) UpdateTotalAndAvailableAmount(
 	ctx context.Context,
 	tx *gorm.DB,
 	budgetID int64,
-	totalAmount string,
+	amount string,
 ) error {
 	err := dbFrom(d.db, tx).WithContext(ctx).
 		Model(&model.ProjectBudget{}).
 		Where("id = ?", budgetID).
-		Update("total_amount", totalAmount).Error
+		Updates(map[string]interface{}{
+			"total_amount":     gorm.Expr("total_amount + ?", amount),
+			"available_amount": gorm.Expr("available_amount + ?", amount),
+		}).Error
 	if err != nil {
-		log.WithContext(ctx).Errorf("update project budget total failed: budget_id=%d err=%v", budgetID, err)
+		log.WithContext(ctx).Errorf("update project budget amounts failed: budget_id=%d amount=%s err=%v", budgetID, amount, err)
 		return err
 	}
-	log.WithContext(ctx).Infof("project budget total updated: budget_id=%d total_amount=%s", budgetID, totalAmount)
+	log.WithContext(ctx).Infof("project budget amounts updated: budget_id=%d amount=%s", budgetID, amount)
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	result := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ?", budgetID).
+		Updates(map[string]interface{}{
+			"available_amount": gorm.Expr("available_amount - ?", amount),
+			"withold_amount":   gorm.Expr("withold_amount + ?", amount),
+		})
+	if result.Error != nil {
+		log.WithContext(ctx).Errorf("apply submit withhold failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
+		return result.Error
+	}
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplyApproveIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	result := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ?", budgetID).
+		Updates(map[string]interface{}{
+			"issued_amount":  gorm.Expr("issued_amount + ?", amount),
+			"withold_amount": gorm.Expr("withold_amount - ?", amount),
+		})
+	if result.Error != nil {
+		log.WithContext(ctx).Errorf("apply approve issued failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
+		return result.Error
+	}
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	result := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ?", budgetID).
+		Updates(map[string]interface{}{
+			"available_amount": gorm.Expr("available_amount + ?", amount),
+			"withold_amount":   gorm.Expr("withold_amount - ?", amount),
+		})
+	if result.Error != nil {
+		log.WithContext(ctx).Errorf("apply reject release failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
+		return result.Error
+	}
 	return nil
 }
 

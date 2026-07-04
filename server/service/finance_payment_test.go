@@ -90,7 +90,7 @@ func TestCreateFinancePaymentSuccess(t *testing.T) {
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.ProjectBudget{ID: 1, TotalAmount: "0"}, nil).Once()
 	financePaymentDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.FinancePayment")).Return(nil).Once()
-	projectBudgetDao.On("UpdateTotalAmount", mock.Anything, mock.Anything, int64(1), mock.Anything).Return(nil).Once()
+	projectBudgetDao.On("UpdateTotalAndAvailableAmount", mock.Anything, mock.Anything, int64(1), "100").Return(nil).Once()
 
 	result, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",

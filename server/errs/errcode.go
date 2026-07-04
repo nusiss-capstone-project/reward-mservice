@@ -13,11 +13,14 @@ const (
 	CodeDuplicateBudgetPair     = 40006
 	CodePaymentExceedsDocAmount = 40007
 	CodeFinanceDocNotApproved   = 40008
+	CodeInsufficientAvailable   = 40009
+	CodeInsufficientWithhold    = 40010
 
 	CodeProjectNotFound       = 40401
 	CodeFinanceDocNotFound    = 40402
 	CodeProjectBudgetNotFound = 40403
 	CodeFinancePaymentNotFound = 40404
+	CodeIssueRequestNotFound  = 40405
 
 	CodeInternalError = 50001
 )
@@ -33,11 +36,14 @@ var messages = map[int]string{
 	CodeDuplicateBudgetPair:     "duplicate voucher_type and unit in application_detail",
 	CodePaymentExceedsDocAmount: "payment amount exceeds doc budget",
 	CodeFinanceDocNotApproved:   "finance doc is not approved",
+	CodeInsufficientAvailable:   "insufficient available amount",
+	CodeInsufficientWithhold:    "insufficient withhold amount",
 
 	CodeProjectNotFound:        "project not found",
 	CodeFinanceDocNotFound:     "finance doc not found",
 	CodeProjectBudgetNotFound:  "project budget not found",
 	CodeFinancePaymentNotFound: "finance payment not found",
+	CodeIssueRequestNotFound:   "issue request not found",
 
 	CodeInternalError: "internal server error",
 }

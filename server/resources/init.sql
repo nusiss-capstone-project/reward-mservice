@@ -74,6 +74,40 @@ CREATE TABLE IF NOT EXISTS finance_payments (
     CONSTRAINT fk_finance_payments_doc FOREIGN KEY (finance_doc_id) REFERENCES finance_docs (doc_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS issue_requests (
+    id               BIGINT         NOT NULL AUTO_INCREMENT,
+    project_id       BIGINT         NOT NULL,
+    voucher_type     VARCHAR(64)    NOT NULL,
+    unit             VARCHAR(32)    NOT NULL,
+    amount           DECIMAL(20, 8) NOT NULL,
+    request_status   VARCHAR(32)    NOT NULL DEFAULT 'DRAFT',
+    expense_type     VARCHAR(32)    NOT NULL,
+    creator          VARCHAR(128)   NOT NULL,
+    remark           VARCHAR(512)   NOT NULL DEFAULT '',
+    created_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_issue_requests_project_id (project_id),
+    KEY idx_issue_requests_status (request_status),
+    CONSTRAINT fk_issue_requests_project FOREIGN KEY (project_id) REFERENCES projects (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS issue_budget (
+    id               BIGINT         NOT NULL AUTO_INCREMENT,
+    issue_request_id BIGINT         NOT NULL,
+    voucher_type     VARCHAR(64)    NOT NULL,
+    unit             VARCHAR(32)    NOT NULL,
+    available_amount DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    total_amount     DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    issued_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    status           VARCHAR(32)    NOT NULL DEFAULT 'ONGOING',
+    created_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_issue_budget_request (issue_request_id),
+    CONSTRAINT fk_issue_budget_request FOREIGN KEY (issue_request_id) REFERENCES issue_requests (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
     ('0xabc123wallet001', 'crypto', 'USD', 'ACC-CRYPTO-001'),
     ('0xdef456wallet002', 'crypto', 'USD', 'ACC-CRYPTO-002'),

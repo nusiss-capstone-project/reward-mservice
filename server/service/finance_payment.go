@@ -321,15 +321,10 @@ func (s *FinancePaymentServiceImpl) createFinancePaymentInTx(
 	if err := validatePaymentBudgetAmount(ctx, payment.FinanceDocID, locked, payment.Amount, docAmount); err != nil {
 		return err
 	}
-	nextTotal, err := util.AddAmount(locked.TotalAmount, payment.Amount)
-	if err != nil {
-		return paymentErr(ctx, errs.New(errs.CodeInvalidRequest, "invalid amount"),
-			"create finance payment rejected", "doc_id", payment.FinanceDocID, "amount", payment.Amount)
-	}
 	if err := s.financePaymentDao.Create(ctx, tx, payment); err != nil {
 		return err
 	}
-	return s.projectBudgetDao.UpdateTotalAmount(ctx, tx, locked.ID, nextTotal)
+	return s.projectBudgetDao.UpdateTotalAndAvailableAmount(ctx, tx, locked.ID, payment.Amount)
 }
 
 func (s *FinancePaymentServiceImpl) ensureFinanceDocExists(ctx context.Context, docID, paymentID string) error {

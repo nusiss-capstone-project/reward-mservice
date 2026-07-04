@@ -435,6 +435,382 @@
                 }
             }
         },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests": {
+            "get": {
+                "description": "List issue requests for a finance doc.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRequest"
+                ],
+                "summary": "List issue requests",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.PageResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create an issue request for campaign budget allocation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRequest"
+                ],
+                "summary": "Create issue request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Issue request payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.CreateIssueRequestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.IssueRequestVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}": {
+            "put": {
+                "description": "Update issue request amount, voucher_type and unit in DRAFT or REJECTED status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRequest"
+                ],
+                "summary": "Update issue request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Issue request ID",
+                        "name": "issue_request_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Issue request payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.UpdateIssueRequestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.IssueRequestVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/approval": {
+            "patch": {
+                "description": "Approve or reject issue request and publish budget update event.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRequest"
+                ],
+                "summary": "Approve or reject issue request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Issue request ID",
+                        "name": "issue_request_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.ApproveIssueRequestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.UpdateIssueRequestResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/submission": {
+            "patch": {
+                "description": "Submit issue request and publish budget withhold event.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRequest"
+                ],
+                "summary": "Submit issue request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Issue request ID",
+                        "name": "issue_request_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Submit payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.SubmitIssueRequestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.UpdateIssueRequestResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/reward-ms/v1/admin/finance-docs/{doc_id}/submission": {
             "patch": {
                 "description": "Move finance doc from DRAFT or REJECTED to TO_APPROVE.",
@@ -806,6 +1182,24 @@
                 }
             }
         },
+        "data.ApproveIssueRequestRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "remark": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "APPROVED",
+                        "REJECTED"
+                    ]
+                }
+            }
+        },
         "data.BaseResponse": {
             "type": "object",
             "properties": {
@@ -866,6 +1260,40 @@
                     "type": "string"
                 },
                 "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "data.CreateIssueRequestRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "expense_type",
+                "unit",
+                "voucher_type"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "creator": {
+                    "type": "string"
+                },
+                "expense_type": {
+                    "type": "string",
+                    "enum": [
+                        "REFUND",
+                        "REWARD",
+                        "OTHERS"
+                    ]
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "voucher_type": {
                     "type": "string"
                 }
             }
@@ -968,6 +1396,44 @@
                 }
             }
         },
+        "data.IssueRequestVO": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "creator": {
+                    "type": "string"
+                },
+                "expense_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "request_status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "voucher_type": {
+                    "type": "string"
+                }
+            }
+        },
         "data.ItemVO": {
             "type": "object",
             "required": [
@@ -1039,6 +1505,23 @@
                 }
             }
         },
+        "data.SubmitIssueRequestRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "remark": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "TO_APPROVE"
+                    ]
+                }
+            }
+        },
         "data.UpdateFinanceDocResponse": {
             "type": "object",
             "properties": {
@@ -1049,6 +1532,42 @@
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "data.UpdateIssueRequestRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "unit",
+                "voucher_type"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "voucher_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "data.UpdateIssueRequestResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "request_status": {
                     "type": "string"
                 }
             }
