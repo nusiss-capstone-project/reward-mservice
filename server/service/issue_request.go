@@ -65,12 +65,13 @@ func (s *IssueRequestServiceImpl) CreateIssueRequest(
 		return nil, err
 	}
 	if req == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "request is required"), "create issue request rejected", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired),
+			errs.LogInputError, "doc_id", docID)
 	}
 
 	input, err := parseIssueRequestInput(req.VoucherType, req.Unit, req.Amount, req.ExpenseType)
 	if err != nil {
-		return nil, issueRequestErr(ctx, err, "create issue request rejected", "doc_id", docID)
+		return nil, issueRequestErr(ctx, err, errs.LogInputError, "doc_id", docID)
 	}
 	if err := s.ensureAvailableAmount(ctx, doc.ProjectID, input); err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (s *IssueRequestServiceImpl) CreateIssueRequest(
 		Remark:        strings.TrimSpace(req.Remark),
 	}
 	if err := s.issueRequestDao.Create(ctx, request); err != nil {
-		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "create issue request failed", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), errs.LogOperationFailed, "doc_id", docID)
 	}
 
 	log.WithContext(ctx).Infof("issue request created: doc_id=%s issue_request_id=%d", docID, request.ID)
@@ -110,13 +111,14 @@ func (s *IssueRequestServiceImpl) UpdateIssueRequest(
 		return nil, err
 	}
 	if req == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "request is required"),
-			"update issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired),
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 
 	input, err := parseIssueRequestUpdate(req.VoucherType, req.Unit, req.Amount)
 	if err != nil {
-		return nil, issueRequestErr(ctx, err, "update issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+		return nil, issueRequestErr(ctx, err, errs.LogInputError,
+			"doc_id", docID, "issue_request_id", issueRequestID)
 	}
 	if err := s.ensureAvailableAmount(ctx, doc.ProjectID, input); err != nil {
 		return nil, err
@@ -125,7 +127,7 @@ func (s *IssueRequestServiceImpl) UpdateIssueRequest(
 	remark := strings.TrimSpace(req.Remark)
 	if err := s.issueRequestDao.UpdateFields(ctx, request.ID, input.voucherType, input.unit, input.amount, remark); err != nil {
 		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			"update issue request failed", "doc_id", docID, "issue_request_id", issueRequestID)
+			errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 
 	request.VoucherType = input.voucherType
@@ -147,7 +149,7 @@ func (s *IssueRequestServiceImpl) SubmitIssueRequest(
 	}
 	if req == nil || strings.ToUpper(strings.TrimSpace(req.Status)) != model.IssueRequestStatusToApprove {
 		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "status must be TO_APPROVE"),
-			"submit issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 	if err := validateIssueRequestTransition(request.RequestStatus, model.IssueRequestStatusToApprove); err != nil {
 		return nil, err
@@ -166,7 +168,7 @@ func (s *IssueRequestServiceImpl) SubmitIssueRequest(
 			return nil, err
 		}
 		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			"submit issue request failed", "doc_id", docID, "issue_request_id", issueRequestID)
+			errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 
 	return &data.UpdateIssueRequestResponse{
@@ -187,14 +189,14 @@ func (s *IssueRequestServiceImpl) ApproveIssueRequest(
 		return nil, err
 	}
 	if req == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "request is required"),
-			"approve issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired),
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 
 	targetStatus := strings.ToUpper(strings.TrimSpace(req.Status))
 	if targetStatus != model.IssueRequestStatusApproved && targetStatus != model.IssueRequestStatusRejected {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "unsupported target status"),
-			"approve issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgUnsupportedTargetStatus),
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 	if err := validateIssueRequestTransition(request.RequestStatus, targetStatus); err != nil {
 		return nil, err
@@ -212,7 +214,7 @@ func (s *IssueRequestServiceImpl) ApproveIssueRequest(
 		}
 		if err := s.eventProducer.PublishIssueRequestUpdated(ctx, request.ID); err != nil {
 			return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-				"publish issue request approved event failed", "doc_id", docID, "issue_request_id", issueRequestID)
+				errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
 		}
 	} else {
 		if err := s.rejectIssueRequestInTx(ctx, request.ID, remark); err != nil {
@@ -237,13 +239,14 @@ func (s *IssueRequestServiceImpl) ListIssueRequestsByDocID(
 		return nil, err
 	}
 	if page <= 0 || size <= 0 {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidPagination, ""), "list issue requests rejected", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidPagination, ""),
+			errs.LogInputError, "doc_id", docID)
 	}
 
 	requests, total, err := s.issueRequestDao.ListByProjectID(ctx, doc.ProjectID, page, size)
 	if err != nil {
 		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			"list issue requests failed", "doc_id", docID)
+			errs.LogOperationFailed, "doc_id", docID)
 	}
 
 	items := make([]*data.IssueRequestVO, 0, len(requests))
@@ -257,11 +260,11 @@ func (s *IssueRequestServiceImpl) ProcessKafkaEvent(ctx context.Context, issueRe
 	request, err := s.issueRequestDao.GetByID(ctx, issueRequestID)
 	if err != nil {
 		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			"process issue request event failed", "issue_request_id", issueRequestID)
+			errs.LogOperationFailed, "issue_request_id", issueRequestID)
 	}
 	if request == nil {
 		return issueRequestErr(ctx, errs.New(errs.CodeIssueRequestNotFound, ""),
-			"process issue request event rejected", "issue_request_id", issueRequestID)
+			errs.LogInputError, "issue_request_id", issueRequestID)
 	}
 	if request.RequestStatus == model.IssueRequestStatusOngoing {
 		return nil
@@ -283,7 +286,7 @@ func (s *IssueRequestServiceImpl) submitIssueRequestInTx(ctx context.Context, tx
 	}
 	if locked == nil {
 		return issueRequestErr(ctx, errs.New(errs.CodeIssueRequestNotFound, ""),
-			"submit issue request rejected", "issue_request_id", issueRequestID)
+			errs.LogInputError, "issue_request_id", issueRequestID)
 	}
 	if err := validateIssueRequestTransition(locked.RequestStatus, model.IssueRequestStatusToApprove); err != nil {
 		return err
@@ -310,7 +313,7 @@ func (s *IssueRequestServiceImpl) approveIssueRequestInTx(ctx context.Context, i
 		}
 		if locked == nil {
 			return issueRequestErr(ctx, errs.New(errs.CodeIssueRequestNotFound, ""),
-				"approve issue request rejected", "issue_request_id", issueRequestID)
+				errs.LogInputError, "issue_request_id", issueRequestID)
 		}
 		if err := validateIssueRequestTransition(locked.RequestStatus, model.IssueRequestStatusApproved); err != nil {
 			return err
@@ -338,7 +341,7 @@ func (s *IssueRequestServiceImpl) rejectIssueRequestInTx(ctx context.Context, is
 		}
 		if locked == nil {
 			return issueRequestErr(ctx, errs.New(errs.CodeIssueRequestNotFound, ""),
-				"reject issue request rejected", "issue_request_id", issueRequestID)
+				errs.LogInputError, "issue_request_id", issueRequestID)
 		}
 		if err := validateIssueRequestTransition(locked.RequestStatus, model.IssueRequestStatusRejected); err != nil {
 			return err
@@ -417,7 +420,7 @@ func parseIssueRequestUpdate(voucherType, unit, amount string) (*issueRequestInp
 		return nil, errs.New(errs.CodeInvalidRequest, "voucher_type, unit and amount are required")
 	}
 	if _, err := util.ParseAmount(amount); err != nil {
-		return nil, errs.New(errs.CodeInvalidRequest, "invalid amount")
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
 	}
 	return &issueRequestInput{voucherType: voucherType, unit: unit, amount: amount}, nil
 }
@@ -425,17 +428,21 @@ func parseIssueRequestUpdate(voucherType, unit, amount string) (*issueRequestInp
 func (s *IssueRequestServiceImpl) loadApprovedDoc(ctx context.Context, docID string) (*model.FinanceDoc, error) {
 	docID = strings.TrimSpace(docID)
 	if docID == "" {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, "doc_id is required"), "issue request rejected")
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired),
+			errs.LogInputError)
 	}
 	doc, err := s.financeDocDao.GetByDocID(ctx, docID)
 	if err != nil {
-		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "load finance doc failed", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
+			errs.LogOperationFailed, "doc_id", docID)
 	}
 	if doc == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeFinanceDocNotFound, ""), "issue request rejected", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeFinanceDocNotFound, ""),
+			errs.LogInputError, "doc_id", docID)
 	}
 	if doc.Status != model.FinanceDocStatusApproved {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeFinanceDocNotApproved, ""), "issue request rejected", "doc_id", docID)
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeFinanceDocNotApproved, ""),
+			errs.LogInputError, "doc_id", docID)
 	}
 	return doc, nil
 }
@@ -452,11 +459,11 @@ func (s *IssueRequestServiceImpl) loadIssueRequestForDoc(
 	request, err := s.issueRequestDao.GetByID(ctx, issueRequestID)
 	if err != nil {
 		return nil, nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			"load issue request failed", "doc_id", docID, "issue_request_id", issueRequestID)
+			errs.LogOperationFailed, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 	if request == nil || request.ProjectID != doc.ProjectID {
 		return nil, nil, issueRequestErr(ctx, errs.New(errs.CodeIssueRequestNotFound, ""),
-			"issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID)
+			errs.LogInputError, "doc_id", docID, "issue_request_id", issueRequestID)
 	}
 	return doc, request, nil
 }
@@ -473,7 +480,8 @@ func (s *IssueRequestServiceImpl) loadEditableIssueRequest(
 	if request.RequestStatus != model.IssueRequestStatusDraft &&
 		request.RequestStatus != model.IssueRequestStatusRejected {
 		return nil, nil, issueRequestErr(ctx, errs.New(errs.CodeInvalidStatusTransition, "issue request is not editable"),
-			"update issue request rejected", "doc_id", docID, "issue_request_id", issueRequestID, "status", request.RequestStatus)
+			errs.LogInputError,
+			"doc_id", docID, "issue_request_id", issueRequestID, "status", request.RequestStatus)
 	}
 	return doc, request, nil
 }
@@ -485,11 +493,11 @@ func (s *IssueRequestServiceImpl) ensureAvailableAmount(
 ) error {
 	budget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(ctx, projectID, input.voucherType, input.unit)
 	if err != nil {
-		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "load project budget failed",
+		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), errs.LogOperationFailed,
 			"project_id", projectID, "voucher_type", input.voucherType, "unit", input.unit)
 	}
 	if budget == nil {
-		return issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), "issue request rejected",
+		return issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), errs.LogInputError,
 			"project_id", projectID, "voucher_type", input.voucherType, "unit", input.unit)
 	}
 	return ensureAvailableGTE(ctx, budget.AvailableAmount, input.amount)
@@ -498,11 +506,11 @@ func (s *IssueRequestServiceImpl) ensureAvailableAmount(
 func (s *IssueRequestServiceImpl) ensureWithholdAmount(ctx context.Context, request *model.IssueRequest) error {
 	budget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(ctx, request.ProjectID, request.VoucherType, request.Unit)
 	if err != nil {
-		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "load project budget failed",
+		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), errs.LogOperationFailed,
 			"issue_request_id", request.ID)
 	}
 	if budget == nil {
-		return issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), "approve issue request rejected",
+		return issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), errs.LogInputError,
 			"issue_request_id", request.ID)
 	}
 	return ensureWithholdGTE(ctx, budget.WithholdAmount, request.Amount)
@@ -519,7 +527,7 @@ func (s *IssueRequestServiceImpl) lockProjectBudget(
 		return nil, err
 	}
 	if budget == nil {
-		return nil, issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), "issue request rejected",
+		return nil, issueRequestErr(ctx, errs.New(errs.CodeProjectBudgetNotFound, ""), errs.LogInputError,
 			"project_id", projectID, "voucher_type", voucherType, "unit", unit)
 	}
 	return s.projectBudgetDao.LockByID(ctx, tx, budget.ID)
@@ -528,10 +536,10 @@ func (s *IssueRequestServiceImpl) lockProjectBudget(
 func ensureAvailableGTE(ctx context.Context, available, amount string) error {
 	cmp, err := util.CmpAmount(available, amount)
 	if err != nil {
-		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "compare available amount failed")
+		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), errs.LogOperationFailed)
 	}
 	if cmp < 0 {
-		return issueRequestErr(ctx, errs.New(errs.CodeInsufficientAvailable, ""), "insufficient available amount",
+		return issueRequestErr(ctx, errs.New(errs.CodeInsufficientAvailable, ""), errs.LogInputError,
 			"available_amount", available, "amount", amount)
 	}
 	return nil
@@ -540,10 +548,10 @@ func ensureAvailableGTE(ctx context.Context, available, amount string) error {
 func ensureWithholdGTE(ctx context.Context, withhold, amount string) error {
 	cmp, err := util.CmpAmount(withhold, amount)
 	if err != nil {
-		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), "compare withhold amount failed")
+		return issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err), errs.LogOperationFailed)
 	}
 	if cmp < 0 {
-		return issueRequestErr(ctx, errs.New(errs.CodeInsufficientWithhold, ""), "insufficient withhold amount",
+		return issueRequestErr(ctx, errs.New(errs.CodeInsufficientWithhold, ""), errs.LogInputError,
 			"withhold_amount", withhold, "amount", amount)
 	}
 	return nil
@@ -553,14 +561,14 @@ func validateIssueRequestTransition(currentStatus, targetStatus string) error {
 	switch targetStatus {
 	case model.IssueRequestStatusToApprove:
 		if currentStatus != model.IssueRequestStatusDraft && currentStatus != model.IssueRequestStatusRejected {
-			return errs.New(errs.CodeInvalidStatusTransition, "only DRAFT or REJECTED can move to TO_APPROVE")
+			return errs.New(errs.CodeInvalidStatusTransition, errs.MsgOnlyDraftOrRejectedToToApprove)
 		}
 	case model.IssueRequestStatusApproved, model.IssueRequestStatusRejected:
 		if currentStatus != model.IssueRequestStatusToApprove {
-			return errs.New(errs.CodeInvalidStatusTransition, "only TO_APPROVE can move to APPROVED or REJECTED")
+			return errs.New(errs.CodeInvalidStatusTransition, errs.MsgOnlyToApproveToApprovedOrRejected)
 		}
 	default:
-		return errs.New(errs.CodeInvalidStatusTransition, "unsupported target status")
+		return errs.New(errs.CodeInvalidStatusTransition, errs.MsgUnsupportedTargetStatus)
 	}
 	return nil
 }

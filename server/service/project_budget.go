@@ -47,7 +47,7 @@ func (s *ProjectBudgetServiceImpl) InitFromApprovedDoc(ctx context.Context, docI
 	logger := log.WithContext(ctx)
 	docID = strings.TrimSpace(docID)
 	if docID == "" {
-		return errs.New(errs.CodeInvalidRequest, "doc_id is required")
+		return errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired)
 	}
 
 	doc, err := s.financeDocDao.GetByDocID(ctx, docID)

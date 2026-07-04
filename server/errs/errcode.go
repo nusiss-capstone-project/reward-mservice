@@ -16,13 +16,28 @@ const (
 	CodeInsufficientAvailable   = 40009
 	CodeInsufficientWithhold    = 40010
 
-	CodeProjectNotFound       = 40401
-	CodeFinanceDocNotFound    = 40402
-	CodeProjectBudgetNotFound = 40403
+	CodeProjectNotFound        = 40401
+	CodeFinanceDocNotFound     = 40402
+	CodeProjectBudgetNotFound  = 40403
 	CodeFinancePaymentNotFound = 40404
-	CodeIssueRequestNotFound  = 40405
+	CodeIssueRequestNotFound   = 40405
 
 	CodeInternalError = 50001
+)
+
+const (
+	MsgRequestRequired                   = "request is required"
+	MsgDocIDRequired                     = "doc_id is required"
+	MsgStatusRequired                    = "status is required"
+	MsgInvalidAmount                     = "invalid amount"
+	MsgOnlyDraftOrRejectedToToApprove    = "only DRAFT or REJECTED can move to TO_APPROVE"
+	MsgOnlyToApproveToApprovedOrRejected = "only TO_APPROVE can move to APPROVED or REJECTED"
+	MsgUnsupportedTargetStatus           = "unsupported target status"
+)
+
+const (
+	LogInputError      = "input error"
+	LogOperationFailed = "operation failed"
 )
 
 var messages = map[int]string{

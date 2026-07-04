@@ -18,13 +18,11 @@ RUN go mod tidy
 # Copy the rest of the application code
 COPY . .
 
-# Build the Go application
+# Build the Go application and prepare runtime permissions
 RUN CGO_ENABLED=0 GOOS=linux \
     go build -a -ldflags="-w -s" -o main main.go && \
-    go clean -cache -modcache
-
-# Create a non-root user and set permissions
-RUN adduser -D -h /home/appuser appuser && \
+    go clean -cache -modcache && \
+    adduser -D -h /home/appuser appuser && \
     mkdir -p logs && \
     chown -R appuser:appuser config/ && \
     chown -R appuser:appuser logs/ && \

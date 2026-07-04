@@ -93,7 +93,7 @@ func GetFinanceDocService() FinanceDocService {
 func (s *FinanceDocServiceImpl) CreateFinanceDoc(ctx context.Context, req *data.CreateFinanceDocRequest) (string, error) {
 	logger := log.WithContext(ctx)
 	if req == nil {
-		return "", errs.New(errs.CodeInvalidRequest, "request is required")
+		return "", errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired)
 	}
 	if req.ProjectID <= 0 {
 		return "", errs.New(errs.CodeInvalidRequest, "project_id is required")
@@ -186,7 +186,7 @@ func (s *FinanceDocServiceImpl) GetFinanceDocDetail(ctx context.Context, docID s
 	logger := log.WithContext(ctx)
 	docID = strings.TrimSpace(docID)
 	if docID == "" {
-		return nil, errs.New(errs.CodeInvalidRequest, "doc_id is required")
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired)
 	}
 
 	doc, err := s.financeDocDao.GetByDocID(ctx, docID)
@@ -208,10 +208,10 @@ func (s *FinanceDocServiceImpl) UpdateFinanceDocStatus(
 	logger := log.WithContext(ctx)
 	docID = strings.TrimSpace(docID)
 	if docID == "" {
-		return nil, errs.New(errs.CodeInvalidRequest, "doc_id is required")
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired)
 	}
 	if req == nil || strings.TrimSpace(req.Status) == "" {
-		return nil, errs.New(errs.CodeInvalidRequest, "status is required")
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgStatusRequired)
 	}
 
 	doc, err := s.financeDocDao.GetByDocID(ctx, docID)
@@ -248,7 +248,7 @@ func (s *FinanceDocServiceImpl) ApproveFinanceDoc(
 ) (*data.UpdateFinanceDocResponse, error) {
 	logger := log.WithContext(ctx)
 	if req == nil || strings.TrimSpace(req.Status) == "" {
-		return nil, errs.New(errs.CodeInvalidRequest, "status is required")
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgStatusRequired)
 	}
 
 	updateReq := &data.UpdateFinanceDocRequest{
@@ -285,14 +285,14 @@ func validateFinanceDocTransition(currentStatus, targetStatus string) error {
 	switch targetStatus {
 	case model.FinanceDocStatusToApprove:
 		if currentStatus != model.FinanceDocStatusDraft && currentStatus != model.FinanceDocStatusRejected {
-			return errs.New(errs.CodeInvalidStatusTransition, "only DRAFT or REJECTED can move to TO_APPROVE")
+			return errs.New(errs.CodeInvalidStatusTransition, errs.MsgOnlyDraftOrRejectedToToApprove)
 		}
 	case model.FinanceDocStatusApproved, model.FinanceDocStatusRejected:
 		if currentStatus != model.FinanceDocStatusToApprove {
-			return errs.New(errs.CodeInvalidStatusTransition, "only TO_APPROVE can move to APPROVED or REJECTED")
+			return errs.New(errs.CodeInvalidStatusTransition, errs.MsgOnlyToApproveToApprovedOrRejected)
 		}
 	default:
-		return errs.New(errs.CodeInvalidStatusTransition, "unsupported target status")
+		return errs.New(errs.CodeInvalidStatusTransition, errs.MsgUnsupportedTargetStatus)
 	}
 	return nil
 }
