@@ -261,6 +261,191 @@ const docTemplate = `{
                 }
             }
         },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/finance-payments": {
+            "get": {
+                "description": "Get a list of finance payments under a finance doc.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-FinancePayment"
+                ],
+                "summary": "Get finance payment list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.FinancePaymentVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a finance payment and update project budget total_amount.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-FinancePayment"
+                ],
+                "summary": "Create finance payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Finance payment payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.CreateFinancePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.FinancePaymentVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/finance-payments/{payment_id}": {
+            "get": {
+                "description": "Get finance payment detail under a finance doc.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-FinancePayment"
+                ],
+                "summary": "Get finance payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Finance payment ID",
+                        "name": "payment_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.FinancePaymentVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/reward-ms/v1/admin/finance-docs/{doc_id}/submission": {
             "patch": {
                 "description": "Move finance doc from DRAFT or REJECTED to TO_APPROVE.",
@@ -677,6 +862,25 @@ const docTemplate = `{
                 }
             }
         },
+        "data.CreateFinancePaymentRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "payment_address",
+                "unit"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "payment_address": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
         "data.CreateProjectRequest": {
             "type": "object",
             "required": [
@@ -737,6 +941,44 @@ const docTemplate = `{
                 }
             }
         },
+        "data.FinancePaymentVO": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "finance_doc_id": {
+                    "type": "string"
+                },
+                "offsetted_amount": {
+                    "type": "string"
+                },
+                "offsetting_amount": {
+                    "type": "string"
+                },
+                "payment_address": {
+                    "type": "string"
+                },
+                "payment_id": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "refunded_amount": {
+                    "type": "string"
+                },
+                "refunding_amount": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "data.ItemVO": {
             "type": "object",
             "required": [
@@ -773,6 +1015,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "payment_account": {
+                    "type": "string"
+                },
+                "unit": {
                     "type": "string"
                 },
                 "voucher_type": {

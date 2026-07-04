@@ -14,6 +14,8 @@ type PaymentConfigDao interface {
 	ListAll(ctx context.Context) ([]*model.PaymentConfig, error)
 	FindExistingPayAddresses(ctx context.Context, payAddresses []string) (map[string]struct{}, error)
 	MapByPayAddresses(ctx context.Context, payAddresses []string) (map[string]*model.PaymentConfig, error)
+	GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error)
+	GetByPayAddressAndUnit(ctx context.Context, payAddress, unit string) (*model.PaymentConfig, error)
 }
 
 type PaymentConfigDaoImpl struct {
@@ -99,4 +101,34 @@ func (d *PaymentConfigDaoImpl) MapByPayAddresses(ctx context.Context, payAddress
 		result[cfg.PayAddress] = cfg
 	}
 	return result, nil
+}
+
+func (d *PaymentConfigDaoImpl) GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error) {
+	var cfg model.PaymentConfig
+	err := d.db.WithContext(ctx).
+		Where("pay_address = ?", payAddress).
+		First(&cfg).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorf("failed to get payment config: pay_address=%s err=%v", payAddress, err)
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (d *PaymentConfigDaoImpl) GetByPayAddressAndUnit(ctx context.Context, payAddress, unit string) (*model.PaymentConfig, error) {
+	var cfg model.PaymentConfig
+	err := d.db.WithContext(ctx).
+		Where("pay_address = ? AND unit = ?", payAddress, unit).
+		First(&cfg).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorf("failed to get payment config: pay_address=%s unit=%s err=%v", payAddress, unit, err)
+		return nil, err
+	}
+	return &cfg, nil
 }

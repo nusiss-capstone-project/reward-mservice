@@ -9,6 +9,7 @@ import (
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"gorm.io/gorm"
@@ -22,6 +23,7 @@ type ProjectBudgetServiceImpl struct {
 	financeDocDao    dao.FinanceDocDao
 	paymentConfigDao dao.PaymentConfigDao
 	projectBudgetDao dao.ProjectBudgetDao
+	txBeginner       repository.TxBeginner
 }
 
 var (
@@ -35,6 +37,7 @@ func GetProjectBudgetService() ProjectBudgetService {
 			financeDocDao:    dao.GetFinanceDocDao(),
 			paymentConfigDao: dao.GetPaymentConfigDao(),
 			projectBudgetDao: dao.GetProjectBudgetDao(),
+			txBeginner:       repository.DB,
 		}
 	})
 	return projectBudgetServiceInst
@@ -72,24 +75,16 @@ func (s *ProjectBudgetServiceImpl) InitFromApprovedDoc(ctx context.Context, docI
 		return err
 	}
 
-	err = s.projectBudgetDao.CreateFromApprovedDoc(ctx, docID, doc.ProjectID, toBudgetCreateItems(items))
+	budgets := toProjectBudgets(docID, doc.ProjectID, items)
+	err = s.txBeginner.Transaction(func(tx *gorm.DB) error {
+		return s.projectBudgetDao.BatchCreate(ctx, tx, budgets)
+	})
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errs.New(errs.CodeFinanceDocNotFound, "")
-		}
-		if errors.Is(err, dao.ErrFinanceDocNotApproved) {
-			return errs.New(errs.CodeInvalidStatusTransition, "finance doc is not approved")
-		}
 		if errors.Is(err, dao.ErrBudgetAlreadyExists) {
-			count, countErr := s.projectBudgetDao.CountByFinanceDocID(ctx, docID)
-			if countErr != nil {
-				return errs.Wrap(errs.CodeInternalError, countErr)
-			}
-			if count == int64(len(items)) {
-				logger.Infof("project budget already initialized: doc_id=%s", docID)
-				return nil
-			}
-			return errs.Wrap(errs.CodeInternalError, err)
+
+			logger.Infof("project budget already initialized: doc_id=%s", docID)
+			return nil
+
 		}
 		logger.Errorf("create project budget failed: doc_id=%s err=%v", docID, err)
 		return errs.Wrap(errs.CodeInternalError, err)

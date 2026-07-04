@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS payment_configs (
     id              BIGINT       NOT NULL AUTO_INCREMENT,
     pay_address     VARCHAR(128) NOT NULL,
     voucher_type    VARCHAR(64)  NOT NULL,
+    unit            VARCHAR(32)  NOT NULL,
     payment_account VARCHAR(128) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_payment_configs_pay_address (pay_address)
@@ -56,10 +57,28 @@ CREATE TABLE IF NOT EXISTS project_budget (
     CONSTRAINT fk_project_budget_finance_doc FOREIGN KEY (finance_doc_id) REFERENCES finance_docs (doc_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO payment_configs (pay_address, voucher_type, payment_account) VALUES
-    ('0xabc123wallet001', 'crypto', 'ACC-CRYPTO-001'),
-    ('0xdef456wallet002', 'crypto', 'ACC-CRYPTO-002'),
-    ('bank-usd-main-001', 'cash', 'ACC-CASH-001')
+CREATE TABLE IF NOT EXISTS finance_payments (
+    payment_id          VARCHAR(64)    NOT NULL,
+    finance_doc_id      VARCHAR(64)    NOT NULL,
+    payment_address     VARCHAR(128)   NOT NULL,
+    amount              DECIMAL(20, 8) NOT NULL,
+    payment_status      VARCHAR(32)    NOT NULL,
+    offsetted_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    offsetting_amount   DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    refunded_amount     DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    refunding_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    created_at          DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at          DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (payment_id),
+    KEY idx_finance_payments_doc_id (finance_doc_id),
+    CONSTRAINT fk_finance_payments_doc FOREIGN KEY (finance_doc_id) REFERENCES finance_docs (doc_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
+    ('0xabc123wallet001', 'crypto', 'USD', 'ACC-CRYPTO-001'),
+    ('0xdef456wallet002', 'crypto', 'USD', 'ACC-CRYPTO-002'),
+    ('bank-usd-main-001', 'cash', 'USD', 'ACC-CASH-001')
 ON DUPLICATE KEY UPDATE
     voucher_type = VALUES(voucher_type),
+    unit = VALUES(unit),
     payment_account = VALUES(payment_account);

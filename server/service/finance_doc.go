@@ -51,6 +51,7 @@ func (s *PaymentConfigServiceImpl) ListPaymentConfigs(ctx context.Context) ([]*d
 		items = append(items, &data.PaymentConfigVO{
 			PayAddress:     cfg.PayAddress,
 			VoucherType:    cfg.VoucherType,
+			Unit:           cfg.Unit,
 			PaymentAccount: cfg.PaymentAccount,
 		})
 	}

@@ -9,20 +9,42 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 )
 
 type mockProjectBudgetDao struct {
 	mock.Mock
 }
 
-func (m *mockProjectBudgetDao) CreateFromApprovedDoc(ctx context.Context, docID string, projectID int64, items []dao.BudgetCreateItem) error {
-	args := m.Called(ctx, docID, projectID, items)
+func (m *mockProjectBudgetDao) BatchCreate(ctx context.Context, tx *gorm.DB, budgets []*model.ProjectBudget) error {
+	args := m.Called(ctx, tx, budgets)
 	return args.Error(0)
 }
 
 func (m *mockProjectBudgetDao) CountByFinanceDocID(ctx context.Context, docID string) (int64, error) {
 	args := m.Called(ctx, docID)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) GetByDocIDVoucherTypeUnit(ctx context.Context, docID, voucherType, unit string) (*model.ProjectBudget, error) {
+	args := m.Called(ctx, docID, voucherType, unit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ProjectBudget), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error) {
+	args := m.Called(ctx, tx, budgetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ProjectBudget), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) UpdateTotalAmount(ctx context.Context, tx *gorm.DB, budgetID int64, totalAmount string) error {
+	args := m.Called(ctx, tx, budgetID, totalAmount)
+	return args.Error(0)
 }
 
 func TestInitFromApprovedDocSuccess(t *testing.T) {
@@ -34,6 +56,7 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
 		projectBudgetDao: projectBudgetDao,
+		txBeginner:       passthroughTxBeginner{},
 	}
 
 	detail, _ := json.Marshal([]model.ApplicationDetailItem{
@@ -51,8 +74,18 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 		Return(map[string]*model.PaymentConfig{
 			"0xabc123wallet001": {PayAddress: "0xabc123wallet001", VoucherType: "crypto"},
 		}, nil).Once()
-	projectBudgetDao.On("CreateFromApprovedDoc", mock.Anything, "doc-1", int64(1), []dao.BudgetCreateItem{
-		{VoucherType: "crypto", Unit: "USD", Amount: "100"},
+	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, []*model.ProjectBudget{
+		{
+			FinanceDocID:    "doc-1",
+			ProjectID:       1,
+			VoucherType:     "crypto",
+			Unit:            "USD",
+			TotalAmount:     "0",
+			AvailableAmount: "100",
+			WitholdAmount:   "0",
+			IssuedAmount:    "0",
+			RefundAmount:    "0",
+		},
 	}).Return(nil).Once()
 
 	err := svc.InitFromApprovedDoc(context.Background(), "doc-1")
@@ -68,6 +101,7 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
 		projectBudgetDao: projectBudgetDao,
+		txBeginner:       passthroughTxBeginner{},
 	}
 
 	detail, _ := json.Marshal([]model.ApplicationDetailItem{
@@ -85,7 +119,7 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 		Return(map[string]*model.PaymentConfig{
 			"0xabc123wallet001": {PayAddress: "0xabc123wallet001", VoucherType: "crypto"},
 		}, nil).Once()
-	projectBudgetDao.On("CreateFromApprovedDoc", mock.Anything, "doc-1", int64(1), mock.Anything).
+	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(dao.ErrBudgetAlreadyExists).Once()
 	projectBudgetDao.On("CountByFinanceDocID", mock.Anything, "doc-1").Return(int64(1), nil).Once()
 

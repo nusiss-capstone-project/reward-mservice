@@ -69,6 +69,22 @@ func (m *mockPaymentConfigDao) MapByPayAddresses(ctx context.Context, payAddress
 	return args.Get(0).(map[string]*model.PaymentConfig), args.Error(1)
 }
 
+func (m *mockPaymentConfigDao) GetByPayAddressAndUnit(ctx context.Context, payAddress, unit string) (*model.PaymentConfig, error) {
+	args := m.Called(ctx, payAddress, unit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.PaymentConfig), args.Error(1)
+}
+
+func (m *mockPaymentConfigDao) GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error) {
+	args := m.Called(ctx, payAddress)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.PaymentConfig), args.Error(1)
+}
+
 type mockFinanceDocApprovedProducer struct {
 	mock.Mock
 }

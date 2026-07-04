@@ -79,13 +79,19 @@ func toApplicationDetailItems(detail []data.ApplicationDetailItemVO) []model.App
 	return items
 }
 
-func toBudgetCreateItems(items []budgetItem) []dao.BudgetCreateItem {
-	result := make([]dao.BudgetCreateItem, 0, len(items))
+func toProjectBudgets(docID string, projectID int64, items []budgetItem) []*model.ProjectBudget {
+	result := make([]*model.ProjectBudget, 0, len(items))
 	for _, item := range items {
-		result = append(result, dao.BudgetCreateItem{
-			VoucherType: item.VoucherType,
-			Unit:        item.Unit,
-			Amount:      item.Amount,
+		result = append(result, &model.ProjectBudget{
+			FinanceDocID:    docID,
+			ProjectID:       projectID,
+			VoucherType:     item.VoucherType,
+			Unit:            item.Unit,
+			TotalAmount:     "0",
+			AvailableAmount: item.Amount,
+			WitholdAmount:   "0",
+			IssuedAmount:    "0",
+			RefundAmount:    "0",
 		})
 	}
 	return result
