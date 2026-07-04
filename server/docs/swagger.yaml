@@ -1,10 +1,195 @@
 definitions:
+  data.ApplicationDetailItemVO:
+    properties:
+      amount:
+        type: string
+      pay_address:
+        type: string
+      unit:
+        type: string
+    required:
+    - amount
+    - pay_address
+    - unit
+    type: object
+  data.ApproveFinanceDocRequest:
+    properties:
+      remark:
+        type: string
+      status:
+        enum:
+        - APPROVED
+        - REJECTED
+        type: string
+    required:
+    - status
+    type: object
+  data.ApproveIssueRequestRequest:
+    properties:
+      remark:
+        type: string
+      status:
+        enum:
+        - APPROVED
+        - REJECTED
+        type: string
+    required:
+    - status
+    type: object
   data.BaseResponse:
     properties:
       code:
         type: integer
       data: {}
       err_msg:
+        type: string
+    type: object
+  data.CreateFinanceDocRequest:
+    properties:
+      application_detail:
+        items:
+          $ref: '#/definitions/data.ApplicationDetailItemVO'
+        minItems: 1
+        type: array
+      creator:
+        type: string
+      description:
+        type: string
+      project_id:
+        type: integer
+    required:
+    - application_detail
+    - project_id
+    type: object
+  data.CreateFinanceDocResponse:
+    properties:
+      doc_id:
+        type: string
+    type: object
+  data.CreateFinancePaymentRequest:
+    properties:
+      amount:
+        type: string
+      payment_address:
+        type: string
+      unit:
+        type: string
+    required:
+    - amount
+    - payment_address
+    - unit
+    type: object
+  data.CreateIssueRequestRequest:
+    properties:
+      amount:
+        type: string
+      creator:
+        type: string
+      expense_type:
+        enum:
+        - REFUND
+        - REWARD
+        - OTHERS
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    required:
+    - amount
+    - expense_type
+    - unit
+    - voucher_type
+    type: object
+  data.CreateProjectRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  data.CreateProjectResponse:
+    properties:
+      project_id:
+        type: integer
+    type: object
+  data.FinanceDocVO:
+    properties:
+      application_detail:
+        items:
+          $ref: '#/definitions/data.ApplicationDetailItemVO'
+        type: array
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      doc_id:
+        type: string
+      project:
+        $ref: '#/definitions/data.ProjectVO'
+      project_id:
+        type: integer
+      remark:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  data.FinancePaymentVO:
+    properties:
+      amount:
+        type: string
+      created_at:
+        type: string
+      finance_doc_id:
+        type: string
+      offsetted_amount:
+        type: string
+      offsetting_amount:
+        type: string
+      payment_address:
+        type: string
+      payment_id:
+        type: string
+      payment_status:
+        type: string
+      refunded_amount:
+        type: string
+      refunding_amount:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  data.IssueRequestVO:
+    properties:
+      amount:
+        type: string
+      created_at:
+        type: string
+      creator:
+        type: string
+      expense_type:
+        type: string
+      id:
+        type: integer
+      project_id:
+        type: integer
+      remark:
+        type: string
+      request_status:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      voucher_type:
         type: string
     type: object
   data.ItemVO:
@@ -16,9 +201,731 @@ definitions:
     required:
     - name
     type: object
+  data.PageResult:
+    properties:
+      items: {}
+      page:
+        type: integer
+      size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  data.PaymentConfigVO:
+    properties:
+      pay_address:
+        type: string
+      payment_account:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    type: object
+  data.ProjectVO:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  data.SubmitFinanceDocRequest:
+    properties:
+      remark:
+        type: string
+    type: object
+  data.SubmitIssueRequestRequest:
+    properties:
+      remark:
+        type: string
+      status:
+        enum:
+        - TO_APPROVE
+        type: string
+    required:
+    - status
+    type: object
+  data.UpdateFinanceDocResponse:
+    properties:
+      doc_id:
+        type: string
+      remark:
+        type: string
+      status:
+        type: string
+    type: object
+  data.UpdateIssueRequestRequest:
+    properties:
+      amount:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    required:
+    - amount
+    - unit
+    - voucher_type
+    type: object
+  data.UpdateIssueRequestResponse:
+    properties:
+      id:
+        type: integer
+      remark:
+        type: string
+      request_status:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
+  /reward-ms/v1/admin/finance-docs:
+    get:
+      description: List finance docs for admin users.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List finance docs
+      tags:
+      - Admin-FinanceDoc
+    post:
+      consumes:
+      - application/json
+      description: Create a finance doc for budget application.
+      parameters:
+      - description: Finance doc payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateFinanceDocRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.CreateFinanceDocResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create finance doc
+      tags:
+      - Admin-FinanceDoc
+  /reward-ms/v1/admin/finance-docs/{doc_id}:
+    get:
+      description: Get finance doc detail by doc_id.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.FinanceDocVO'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Get finance doc detail
+      tags:
+      - Admin-FinanceDoc
+  /reward-ms/v1/admin/finance-docs/{doc_id}/approval:
+    patch:
+      consumes:
+      - application/json
+      description: Move finance doc from TO_APPROVE to APPROVED or REJECTED. When
+        approved, a Kafka event is published to initialize project budget.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Approval payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.ApproveFinanceDocRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateFinanceDocResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Approve or reject finance doc
+      tags:
+      - Admin-FinanceDoc
+  /reward-ms/v1/admin/finance-docs/{doc_id}/finance-payments:
+    get:
+      description: Get a list of finance payments under a finance doc.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.FinancePaymentVO'
+                  type: array
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Get finance payment list
+      tags:
+      - Admin-FinancePayment
+    post:
+      consumes:
+      - application/json
+      description: Create a finance payment and update project budget total_amount.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Finance payment payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateFinancePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.FinancePaymentVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create finance payment
+      tags:
+      - Admin-FinancePayment
+  /reward-ms/v1/admin/finance-docs/{doc_id}/finance-payments/{payment_id}:
+    get:
+      description: Get finance payment detail under a finance doc.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Finance payment ID
+        in: path
+        name: payment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.FinancePaymentVO'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Get finance payment
+      tags:
+      - Admin-FinancePayment
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests:
+    get:
+      description: List issue requests for a finance doc.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List issue requests
+      tags:
+      - Admin-IssueRequest
+    post:
+      consumes:
+      - application/json
+      description: Create an issue request for campaign budget allocation.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.IssueRequestVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}:
+    put:
+      consumes:
+      - application/json
+      description: Update issue request amount, voucher_type and unit in DRAFT or
+        REJECTED status.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Issue request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.IssueRequestVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/approval:
+    patch:
+      consumes:
+      - application/json
+      description: Approve or reject issue request and publish budget update event.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Approval payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.ApproveIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateIssueRequestResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Approve or reject issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests/{issue_request_id}/submission:
+    patch:
+      consumes:
+      - application/json
+      description: Submit issue request and publish budget withhold event.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      - description: Submit payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.SubmitIssueRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateIssueRequestResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Submit issue request
+      tags:
+      - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/submission:
+    patch:
+      consumes:
+      - application/json
+      description: Move finance doc from DRAFT or REJECTED to TO_APPROVE.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Submit payload
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/data.SubmitFinanceDocRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.UpdateFinanceDocResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Submit finance doc for approval
+      tags:
+      - Admin-FinanceDoc
+  /reward-ms/v1/admin/payment-configs:
+    get:
+      description: List payment address and account options for finance doc creation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.PaymentConfigVO'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List payment configs
+      tags:
+      - Admin-PaymentConfig
+  /reward-ms/v1/admin/projects:
+    get:
+      description: List reward projects with page and size.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List projects
+      tags:
+      - Admin-Project
+    post:
+      consumes:
+      - application/json
+      description: Create a reward project.
+      parameters:
+      - description: Project payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.CreateProjectResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create project
+      tags:
+      - Admin-Project
   /reward-ms/v1/items:
     post:
       consumes:

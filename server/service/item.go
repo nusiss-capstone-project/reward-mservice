@@ -23,10 +23,10 @@ type ItemServiceImpl struct {
 
 var (
 	itemServiceSyncOnce sync.Once
-	itemServiceInst     *ItemServiceImpl
+	itemServiceInst     ItemService
 )
 
-func GetItemService() *ItemServiceImpl {
+func GetItemService() ItemService {
 	itemServiceSyncOnce.Do(func() {
 		itemServiceInst = &ItemServiceImpl{itemDao: dao.GetItemDao()}
 	})
