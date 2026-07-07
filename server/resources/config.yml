@@ -13,6 +13,7 @@ log:
   file_path: ./logs/reward-mservice.log
 
 system:
+  service_name: reward-mservice
   allowed_origins: 
   - https://campaign-center-admin-web.vercel.app
   - https://finverse-web.vercel.app

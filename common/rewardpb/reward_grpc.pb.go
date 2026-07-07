@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	RewardService_SayHello_FullMethodName = "/rewardpb.RewardService/SayHello"
+	RewardService_Reward_FullMethodName   = "/rewardpb.RewardService/Reward"
 )
 
 // RewardServiceClient is the client API for RewardService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RewardServiceClient interface {
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloResponse, error)
+	Reward(ctx context.Context, in *RewardDistributionRequest, opts ...grpc.CallOption) (*RewardDistributionResponse, error)
 }
 
 type rewardServiceClient struct {
@@ -47,11 +49,22 @@ func (c *rewardServiceClient) SayHello(ctx context.Context, in *HelloRequest, op
 	return out, nil
 }
 
+func (c *rewardServiceClient) Reward(ctx context.Context, in *RewardDistributionRequest, opts ...grpc.CallOption) (*RewardDistributionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RewardDistributionResponse)
+	err := c.cc.Invoke(ctx, RewardService_Reward_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RewardServiceServer is the server API for RewardService service.
 // All implementations must embed UnimplementedRewardServiceServer
 // for forward compatibility.
 type RewardServiceServer interface {
 	SayHello(context.Context, *HelloRequest) (*HelloResponse, error)
+	Reward(context.Context, *RewardDistributionRequest) (*RewardDistributionResponse, error)
 	mustEmbedUnimplementedRewardServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedRewardServiceServer struct{}
 
 func (UnimplementedRewardServiceServer) SayHello(context.Context, *HelloRequest) (*HelloResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SayHello not implemented")
+}
+func (UnimplementedRewardServiceServer) Reward(context.Context, *RewardDistributionRequest) (*RewardDistributionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Reward not implemented")
 }
 func (UnimplementedRewardServiceServer) mustEmbedUnimplementedRewardServiceServer() {}
 func (UnimplementedRewardServiceServer) testEmbeddedByValue()                       {}
@@ -104,6 +120,24 @@ func _RewardService_SayHello_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RewardService_Reward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RewardDistributionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RewardServiceServer).Reward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RewardService_Reward_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RewardServiceServer).Reward(ctx, req.(*RewardDistributionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RewardService_ServiceDesc is the grpc.ServiceDesc for RewardService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var RewardService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SayHello",
 			Handler:    _RewardService_SayHello_Handler,
+		},
+		{
+			MethodName: "Reward",
+			Handler:    _RewardService_Reward_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

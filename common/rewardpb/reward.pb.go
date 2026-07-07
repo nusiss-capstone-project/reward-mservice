@@ -21,6 +21,180 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ErrorCode int32
+
+const (
+	ErrorCode_ERROR_UNSPECIFIED ErrorCode = 0
+	ErrorCode_OK                ErrorCode = 1
+	ErrorCode_INVALID_PARAM     ErrorCode = 2
+	ErrorCode_DATA_NOT_EXIST    ErrorCode = 3
+	ErrorCode_UNKNOWN_ERROR     ErrorCode = 100
+)
+
+// Enum value maps for ErrorCode.
+var (
+	ErrorCode_name = map[int32]string{
+		0:   "ERROR_UNSPECIFIED",
+		1:   "OK",
+		2:   "INVALID_PARAM",
+		3:   "DATA_NOT_EXIST",
+		100: "UNKNOWN_ERROR",
+	}
+	ErrorCode_value = map[string]int32{
+		"ERROR_UNSPECIFIED": 0,
+		"OK":                1,
+		"INVALID_PARAM":     2,
+		"DATA_NOT_EXIST":    3,
+		"UNKNOWN_ERROR":     100,
+	}
+)
+
+func (x ErrorCode) Enum() *ErrorCode {
+	p := new(ErrorCode)
+	*p = x
+	return p
+}
+
+func (x ErrorCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ErrorCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_reward_proto_enumTypes[0].Descriptor()
+}
+
+func (ErrorCode) Type() protoreflect.EnumType {
+	return &file_proto_reward_proto_enumTypes[0]
+}
+
+func (x ErrorCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ErrorCode.Descriptor instead.
+func (ErrorCode) EnumDescriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{0}
+}
+
+type VoucherType int32
+
+const (
+	VoucherType_VOUCHER_TYPE_UNSPECIFIED VoucherType = 0
+	VoucherType_CRYPTO                   VoucherType = 1
+	VoucherType_COUPON                   VoucherType = 2
+	VoucherType_POINT                    VoucherType = 3
+)
+
+// Enum value maps for VoucherType.
+var (
+	VoucherType_name = map[int32]string{
+		0: "VOUCHER_TYPE_UNSPECIFIED",
+		1: "CRYPTO",
+		2: "COUPON",
+		3: "POINT",
+	}
+	VoucherType_value = map[string]int32{
+		"VOUCHER_TYPE_UNSPECIFIED": 0,
+		"CRYPTO":                   1,
+		"COUPON":                   2,
+		"POINT":                    3,
+	}
+)
+
+func (x VoucherType) Enum() *VoucherType {
+	p := new(VoucherType)
+	*p = x
+	return p
+}
+
+func (x VoucherType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VoucherType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_reward_proto_enumTypes[1].Descriptor()
+}
+
+func (VoucherType) Type() protoreflect.EnumType {
+	return &file_proto_reward_proto_enumTypes[1]
+}
+
+func (x VoucherType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VoucherType.Descriptor instead.
+func (VoucherType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{1}
+}
+
+type Unit int32
+
+const (
+	Unit_UNIT_UNSPECIFIED          Unit = 0
+	Unit_CRYPTO_BTC                Unit = 1001
+	Unit_CRYPTO_ETH                Unit = 1002
+	Unit_CRYPTO_USDT               Unit = 1003
+	Unit_CRYPTO_USDC               Unit = 1004
+	Unit_COUPON_CASHBACK           Unit = 2001
+	Unit_COUPON_DISCOUNT           Unit = 2002
+	Unit_COUPON_TRADING_FEE_REBATE Unit = 2003
+	Unit_POINT_USER_POINTS         Unit = 3001
+)
+
+// Enum value maps for Unit.
+var (
+	Unit_name = map[int32]string{
+		0:    "UNIT_UNSPECIFIED",
+		1001: "CRYPTO_BTC",
+		1002: "CRYPTO_ETH",
+		1003: "CRYPTO_USDT",
+		1004: "CRYPTO_USDC",
+		2001: "COUPON_CASHBACK",
+		2002: "COUPON_DISCOUNT",
+		2003: "COUPON_TRADING_FEE_REBATE",
+		3001: "POINT_USER_POINTS",
+	}
+	Unit_value = map[string]int32{
+		"UNIT_UNSPECIFIED":          0,
+		"CRYPTO_BTC":                1001,
+		"CRYPTO_ETH":                1002,
+		"CRYPTO_USDT":               1003,
+		"CRYPTO_USDC":               1004,
+		"COUPON_CASHBACK":           2001,
+		"COUPON_DISCOUNT":           2002,
+		"COUPON_TRADING_FEE_REBATE": 2003,
+		"POINT_USER_POINTS":         3001,
+	}
+)
+
+func (x Unit) Enum() *Unit {
+	p := new(Unit)
+	*p = x
+	return p
+}
+
+func (x Unit) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Unit) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_reward_proto_enumTypes[2].Descriptor()
+}
+
+func (Unit) Type() protoreflect.EnumType {
+	return &file_proto_reward_proto_enumTypes[2]
+}
+
+func (x Unit) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Unit.Descriptor instead.
+func (Unit) EnumDescriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{2}
+}
+
 type HelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -109,6 +283,262 @@ func (x *HelloResponse) GetMessage() string {
 	return ""
 }
 
+type BaseResponseInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          ErrorCode              `protobuf:"varint,1,opt,name=code,proto3,enum=rewardpb.ErrorCode" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BaseResponseInfo) Reset() {
+	*x = BaseResponseInfo{}
+	mi := &file_proto_reward_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BaseResponseInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BaseResponseInfo) ProtoMessage() {}
+
+func (x *BaseResponseInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_reward_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BaseResponseInfo.ProtoReflect.Descriptor instead.
+func (*BaseResponseInfo) Descriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BaseResponseInfo) GetCode() ErrorCode {
+	if x != nil {
+		return x.Code
+	}
+	return ErrorCode_ERROR_UNSPECIFIED
+}
+
+func (x *BaseResponseInfo) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type BaseRequestInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BaseRequestInfo) Reset() {
+	*x = BaseRequestInfo{}
+	mi := &file_proto_reward_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BaseRequestInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BaseRequestInfo) ProtoMessage() {}
+
+func (x *BaseRequestInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_reward_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BaseRequestInfo.ProtoReflect.Descriptor instead.
+func (*BaseRequestInfo) Descriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BaseRequestInfo) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *BaseRequestInfo) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type RewardDistributionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientRefId   string                 `protobuf:"bytes,1,opt,name=clientRefId,proto3" json:"clientRefId,omitempty"`
+	UserId        uint64                 `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
+	ProjectId     uint64                 `protobuf:"varint,3,opt,name=projectId,proto3" json:"projectId,omitempty"`
+	VoucherType   string                 `protobuf:"bytes,4,opt,name=voucherType,proto3" json:"voucherType,omitempty"`
+	Unit          string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
+	Amount        string                 `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	BaseInfo      *BaseRequestInfo       `protobuf:"bytes,255,opt,name=baseInfo,proto3" json:"baseInfo,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RewardDistributionRequest) Reset() {
+	*x = RewardDistributionRequest{}
+	mi := &file_proto_reward_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RewardDistributionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RewardDistributionRequest) ProtoMessage() {}
+
+func (x *RewardDistributionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_reward_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RewardDistributionRequest.ProtoReflect.Descriptor instead.
+func (*RewardDistributionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *RewardDistributionRequest) GetClientRefId() string {
+	if x != nil {
+		return x.ClientRefId
+	}
+	return ""
+}
+
+func (x *RewardDistributionRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *RewardDistributionRequest) GetProjectId() uint64 {
+	if x != nil {
+		return x.ProjectId
+	}
+	return 0
+}
+
+func (x *RewardDistributionRequest) GetVoucherType() string {
+	if x != nil {
+		return x.VoucherType
+	}
+	return ""
+}
+
+func (x *RewardDistributionRequest) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *RewardDistributionRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *RewardDistributionRequest) GetBaseInfo() *BaseRequestInfo {
+	if x != nil {
+		return x.BaseInfo
+	}
+	return nil
+}
+
+type RewardDistributionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientRefId   string                 `protobuf:"bytes,1,opt,name=clientRefId,proto3" json:"clientRefId,omitempty"`
+	VoucherId     string                 `protobuf:"bytes,2,opt,name=voucherId,proto3" json:"voucherId,omitempty"`
+	BaseInfo      *BaseResponseInfo      `protobuf:"bytes,255,opt,name=baseInfo,proto3" json:"baseInfo,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RewardDistributionResponse) Reset() {
+	*x = RewardDistributionResponse{}
+	mi := &file_proto_reward_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RewardDistributionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RewardDistributionResponse) ProtoMessage() {}
+
+func (x *RewardDistributionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_reward_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RewardDistributionResponse.ProtoReflect.Descriptor instead.
+func (*RewardDistributionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_reward_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RewardDistributionResponse) GetClientRefId() string {
+	if x != nil {
+		return x.ClientRefId
+	}
+	return ""
+}
+
+func (x *RewardDistributionResponse) GetVoucherId() string {
+	if x != nil {
+		return x.VoucherId
+	}
+	return ""
+}
+
+func (x *RewardDistributionResponse) GetBaseInfo() *BaseResponseInfo {
+	if x != nil {
+		return x.BaseInfo
+	}
+	return nil
+}
+
 var File_proto_reward_proto protoreflect.FileDescriptor
 
 const file_proto_reward_proto_rawDesc = "" +
@@ -117,9 +547,53 @@ const file_proto_reward_proto_rawDesc = "" +
 	"\fHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\")\n" +
 	"\rHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2L\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"U\n" +
+	"\x10BaseResponseInfo\x12'\n" +
+	"\x04code\x18\x01 \x01(\x0e2\x13.rewardpb.ErrorCodeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"5\n" +
+	"\x0fBaseRequestInfo\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\"\xf9\x01\n" +
+	"\x19RewardDistributionRequest\x12 \n" +
+	"\vclientRefId\x18\x01 \x01(\tR\vclientRefId\x12\x16\n" +
+	"\x06userId\x18\x02 \x01(\x04R\x06userId\x12\x1c\n" +
+	"\tprojectId\x18\x03 \x01(\x04R\tprojectId\x12 \n" +
+	"\vvoucherType\x18\x04 \x01(\tR\vvoucherType\x12\x12\n" +
+	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x16\n" +
+	"\x06amount\x18\x06 \x01(\tR\x06amount\x126\n" +
+	"\bbaseInfo\x18\xff\x01 \x01(\v2\x19.rewardpb.BaseRequestInfoR\bbaseInfo\"\x95\x01\n" +
+	"\x1aRewardDistributionResponse\x12 \n" +
+	"\vclientRefId\x18\x01 \x01(\tR\vclientRefId\x12\x1c\n" +
+	"\tvoucherId\x18\x02 \x01(\tR\tvoucherId\x127\n" +
+	"\bbaseInfo\x18\xff\x01 \x01(\v2\x1a.rewardpb.BaseResponseInfoR\bbaseInfo*d\n" +
+	"\tErrorCode\x12\x15\n" +
+	"\x11ERROR_UNSPECIFIED\x10\x00\x12\x06\n" +
+	"\x02OK\x10\x01\x12\x11\n" +
+	"\rINVALID_PARAM\x10\x02\x12\x12\n" +
+	"\x0eDATA_NOT_EXIST\x10\x03\x12\x11\n" +
+	"\rUNKNOWN_ERROR\x10d*N\n" +
+	"\vVoucherType\x12\x1c\n" +
+	"\x18VOUCHER_TYPE_UNSPECIFIED\x10\x00\x12\n" +
+	"\n" +
+	"\x06CRYPTO\x10\x01\x12\n" +
+	"\n" +
+	"\x06COUPON\x10\x02\x12\t\n" +
+	"\x05POINT\x10\x03*\xc6\x01\n" +
+	"\x04Unit\x12\x14\n" +
+	"\x10UNIT_UNSPECIFIED\x10\x00\x12\x0f\n" +
+	"\n" +
+	"CRYPTO_BTC\x10\xe9\a\x12\x0f\n" +
+	"\n" +
+	"CRYPTO_ETH\x10\xea\a\x12\x10\n" +
+	"\vCRYPTO_USDT\x10\xeb\a\x12\x10\n" +
+	"\vCRYPTO_USDC\x10\xec\a\x12\x14\n" +
+	"\x0fCOUPON_CASHBACK\x10\xd1\x0f\x12\x14\n" +
+	"\x0fCOUPON_DISCOUNT\x10\xd2\x0f\x12\x1e\n" +
+	"\x19COUPON_TRADING_FEE_REBATE\x10\xd3\x0f\x12\x16\n" +
+	"\x11POINT_USER_POINTS\x10\xb9\x172\xa1\x01\n" +
 	"\rRewardService\x12;\n" +
-	"\bSayHello\x12\x16.rewardpb.HelloRequest\x1a\x17.rewardpb.HelloResponseB\x14Z\x12/rewardpb;rewardpbb\x06proto3"
+	"\bSayHello\x12\x16.rewardpb.HelloRequest\x1a\x17.rewardpb.HelloResponse\x12S\n" +
+	"\x06Reward\x12#.rewardpb.RewardDistributionRequest\x1a$.rewardpb.RewardDistributionResponseB\x14Z\x12/rewardpb;rewardpbb\x06proto3"
 
 var (
 	file_proto_reward_proto_rawDescOnce sync.Once
@@ -133,19 +607,32 @@ func file_proto_reward_proto_rawDescGZIP() []byte {
 	return file_proto_reward_proto_rawDescData
 }
 
-var file_proto_reward_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_reward_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_proto_reward_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_reward_proto_goTypes = []any{
-	(*HelloRequest)(nil),  // 0: rewardpb.HelloRequest
-	(*HelloResponse)(nil), // 1: rewardpb.HelloResponse
+	(ErrorCode)(0),                     // 0: rewardpb.ErrorCode
+	(VoucherType)(0),                   // 1: rewardpb.VoucherType
+	(Unit)(0),                          // 2: rewardpb.Unit
+	(*HelloRequest)(nil),               // 3: rewardpb.HelloRequest
+	(*HelloResponse)(nil),              // 4: rewardpb.HelloResponse
+	(*BaseResponseInfo)(nil),           // 5: rewardpb.BaseResponseInfo
+	(*BaseRequestInfo)(nil),            // 6: rewardpb.BaseRequestInfo
+	(*RewardDistributionRequest)(nil),  // 7: rewardpb.RewardDistributionRequest
+	(*RewardDistributionResponse)(nil), // 8: rewardpb.RewardDistributionResponse
 }
 var file_proto_reward_proto_depIdxs = []int32{
-	0, // 0: rewardpb.RewardService.SayHello:input_type -> rewardpb.HelloRequest
-	1, // 1: rewardpb.RewardService.SayHello:output_type -> rewardpb.HelloResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: rewardpb.BaseResponseInfo.code:type_name -> rewardpb.ErrorCode
+	6, // 1: rewardpb.RewardDistributionRequest.baseInfo:type_name -> rewardpb.BaseRequestInfo
+	5, // 2: rewardpb.RewardDistributionResponse.baseInfo:type_name -> rewardpb.BaseResponseInfo
+	3, // 3: rewardpb.RewardService.SayHello:input_type -> rewardpb.HelloRequest
+	7, // 4: rewardpb.RewardService.Reward:input_type -> rewardpb.RewardDistributionRequest
+	4, // 5: rewardpb.RewardService.SayHello:output_type -> rewardpb.HelloResponse
+	8, // 6: rewardpb.RewardService.Reward:output_type -> rewardpb.RewardDistributionResponse
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_reward_proto_init() }
@@ -158,13 +645,14 @@ func file_proto_reward_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_reward_proto_rawDesc), len(file_proto_reward_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_reward_proto_goTypes,
 		DependencyIndexes: file_proto_reward_proto_depIdxs,
+		EnumInfos:         file_proto_reward_proto_enumTypes,
 		MessageInfos:      file_proto_reward_proto_msgTypes,
 	}.Build()
 	File_proto_reward_proto = out.File
