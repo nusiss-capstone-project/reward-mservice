@@ -21,8 +21,10 @@ func Init(ctx context.Context) {
 
 const TopicFinanceDocApproved = producer.FinanceDocApprovedTopic
 const TopicIssueRequestUpdated = producer.IssueRequestUpdatedTopic
+const TopicRewardDistributionExecute = producer.RewardDistributionExecuteTopic
 
 func init() {
 	kafka.RegisterHandler(TopicFinanceDocApproved, handleFinanceDocApproved)
 	kafka.RegisterHandler(TopicIssueRequestUpdated, handleIssueRequestUpdated)
+	kafka.RegisterHandler(TopicRewardDistributionExecute, handleRewardDistributionExecute)
 }

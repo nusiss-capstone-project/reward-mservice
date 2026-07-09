@@ -22,6 +22,10 @@ type ProjectBudgetDao interface {
 	ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
 	ApplyApproveIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
 	ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	HasAvailableForDistribution(ctx context.Context, projectID int64, voucherType, unit, amount string) (bool, error)
+	ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
+	ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
 }
 
 type ProjectBudgetDaoImpl struct {
@@ -149,7 +153,7 @@ func (d *ProjectBudgetDaoImpl) ApplySubmitWithhold(ctx context.Context, tx *gorm
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
 			"available_amount": gorm.Expr("available_amount - ?", amount),
-			"withhold_amount":   gorm.Expr("withhold_amount + ?", amount),
+			"withhold_amount":  gorm.Expr("withhold_amount + ?", amount),
 		})
 	if result.Error != nil {
 		log.WithContext(ctx).Errorf("apply submit withhold failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
@@ -162,7 +166,7 @@ func (d *ProjectBudgetDaoImpl) ApplyApproveIssued(ctx context.Context, tx *gorm.
 	result := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
-			"issued_amount":  gorm.Expr("issued_amount + ?", amount),
+			"issued_amount":   gorm.Expr("issued_amount + ?", amount),
 			"withhold_amount": gorm.Expr("withhold_amount - ?", amount),
 		})
 	if result.Error != nil {
@@ -177,11 +181,93 @@ func (d *ProjectBudgetDaoImpl) ApplyRejectRelease(ctx context.Context, tx *gorm.
 		Where("id = ?", budgetID).
 		Updates(map[string]interface{}{
 			"available_amount": gorm.Expr("available_amount + ?", amount),
-			"withhold_amount":   gorm.Expr("withhold_amount - ?", amount),
+			"withhold_amount":  gorm.Expr("withhold_amount - ?", amount),
 		})
 	if result.Error != nil {
 		log.WithContext(ctx).Errorf("apply reject release failed: budget_id=%d amount=%s err=%v", budgetID, amount, result.Error)
 		return result.Error
+	}
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) HasAvailableForDistribution(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit, amount string,
+) (bool, error) {
+	var count int64
+	err := d.db.WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("project_id = ? AND voucher_type = ? AND unit = ?", projectID, voucherType, unit).
+		Where("available_amount >= ?", amount).
+		Count(&count).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("check project budget availability failed",
+			"project_id", projectID,
+			"voucher_type", voucherType,
+			"unit", unit,
+			"error", err,
+		)
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplyDistributionDeductAvailable(
+	ctx context.Context,
+	tx *gorm.DB,
+	budgetID int64,
+	amount string,
+) error {
+	err := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ? and available_amount >= ?", budgetID, amount).
+		Update("available_amount", gorm.Expr("available_amount - ?", amount)).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("deduct project budget available failed",
+			"budget_id", budgetID,
+			"amount", amount,
+			"error", err,
+		)
+		return err
+	}
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplyDistributionIssued(
+	ctx context.Context,
+	tx *gorm.DB,
+	budgetID int64,
+	amount string,
+) error {
+	err := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ?", budgetID).
+		Update("issued_amount", gorm.Expr("issued_amount + ?", amount)).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("apply project budget issued failed",
+			"budget_id", budgetID,
+			"amount", amount,
+			"error", err,
+		)
+		return err
+	}
+	return nil
+}
+
+func (d *ProjectBudgetDaoImpl) ApplyDistributionRefund(
+	ctx context.Context,
+	tx *gorm.DB,
+	budgetID int64,
+	amount string,
+) error {
+	err := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+		Where("id = ?", budgetID).
+		Update("refund_amount", gorm.Expr("refund_amount + ?", amount)).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("apply project budget refund failed",
+			"budget_id", budgetID,
+			"amount", amount,
+			"error", err,
+		)
+		return err
 	}
 	return nil
 }

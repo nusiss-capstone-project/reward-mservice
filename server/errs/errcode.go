@@ -15,6 +15,7 @@ const (
 	CodeFinanceDocNotApproved   = 40008
 	CodeInsufficientAvailable   = 40009
 	CodeInsufficientWithhold    = 40010
+	CodeDuplicateClientRefID    = 40011
 
 	CodeProjectNotFound        = 40401
 	CodeFinanceDocNotFound     = 40402
@@ -53,6 +54,7 @@ var messages = map[int]string{
 	CodeFinanceDocNotApproved:   "finance doc is not approved",
 	CodeInsufficientAvailable:   "insufficient available amount",
 	CodeInsufficientWithhold:    "insufficient withhold amount",
+	CodeDuplicateClientRefID:    "duplicate client_ref_id",
 
 	CodeProjectNotFound:        "project not found",
 	CodeFinanceDocNotFound:     "finance doc not found",

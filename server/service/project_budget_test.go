@@ -75,6 +75,30 @@ func (m *mockProjectBudgetDao) UpdateTotalAndAvailableAmount(ctx context.Context
 	return args.Error(0)
 }
 
+func (m *mockProjectBudgetDao) HasAvailableForDistribution(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit, amount string,
+) (bool, error) {
+	args := m.Called(ctx, projectID, voucherType, unit, amount)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
 func TestInitFromApprovedDocSuccess(t *testing.T) {
 	initServiceTestEnv()
 	financeDocDao := new(mockFinanceDocDao)

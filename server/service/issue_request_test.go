@@ -78,6 +78,41 @@ func (m *mockIssueBudgetDao) GetByIssueRequestID(ctx context.Context, issueReque
 	return args.Get(0).(*model.IssueBudget), args.Error(1)
 }
 
+func (m *mockIssueBudgetDao) GetFirstAvailableForDistribution(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit, amount string,
+) (*model.IssueBudget, error) {
+	args := m.Called(ctx, projectID, voucherType, unit, amount)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.IssueBudget), args.Error(1)
+}
+
+func (m *mockIssueBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.IssueBudget, error) {
+	args := m.Called(ctx, tx, budgetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.IssueBudget), args.Error(1)
+}
+
+func (m *mockIssueBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockIssueBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockIssueBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
 type mockIssueRequestUpdatedProducer struct {
 	mock.Mock
 }
