@@ -95,6 +95,10 @@ func (d *rewardRequestDaoImpl) UpdateStatus(ctx context.Context, tx *gorm.DB, id
 		)
 		return err
 	}
+	log.WithContext(ctx).Infow("reward request status updated",
+		"reward_request_id", id,
+		"status", status,
+	)
 	return nil
 }
 

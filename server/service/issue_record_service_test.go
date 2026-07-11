@@ -8,6 +8,7 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/common/rewardpb"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
+	"github.com/nusiss-capstone-project/reward-mservice/server/proxy"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -102,7 +103,7 @@ type mockVoucherIssuer struct {
 
 func (m *mockVoucherIssuer) Issue(
 	ctx context.Context,
-	record *issueRecordSnapshot,
+	record *proxy.IssueRecordSnapshot,
 	amount string,
 ) (bool, string, error) {
 	args := m.Called(ctx, record, amount)
@@ -139,42 +140,55 @@ func validRewardRequest() *rewardpb.RewardDistributionRequest {
 		ClientRefId: "ref-1",
 		UserId:      10,
 		ProjectId:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 	}
+}
+
+func mockProcessBudgetExists(projectBudgetDao *mockProjectBudgetDao) {
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit",
+		mock.Anything, int64(20),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
+	).Return(&model.ProjectBudget{ID: 50}, nil).Once()
 }
 
 func TestProcessVoucherIssueRequestSuccess(t *testing.T) {
 	initServiceTestEnv()
 	rewardRequestDao := new(mockRewardRequestDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
 	executeProducer := new(mockRewardExecuteProducer)
 	svc := newIssueRecordTestService(
 		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
 		executeProducer, new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
 
+	mockProcessBudgetExists(projectBudgetDao)
 	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
 	rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).Return(nil)
 	executeProducer.On("PublishExecute", mock.Anything, int64(100)).Return(nil)
 
 	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
 	assert.NoError(t, err)
-	mock.AssertExpectationsForObjects(t, rewardRequestDao, executeProducer)
+	mock.AssertExpectationsForObjects(t, rewardRequestDao, executeProducer, projectBudgetDao)
 }
 
 func TestProcessVoucherIssueRequestDuplicateClientRefID(t *testing.T) {
 	initServiceTestEnv()
 	rewardRequestDao := new(mockRewardRequestDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
 	svc := newIssueRecordTestService(
 		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
 
+	mockProcessBudgetExists(projectBudgetDao)
 	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(&model.RewardRequest{ID: 1}, nil)
 
 	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
@@ -203,8 +217,8 @@ func TestExecuteRewardDistributionRiskFailure(t *testing.T) {
 		ClientRefID: "ref-1",
 		UserID:      10,
 		ProjectID:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 		Status:      model.RewardRequestStatusPending,
 	}
@@ -228,13 +242,13 @@ func TestExecuteRewardDistributionRiskFailure(t *testing.T) {
 func TestExecuteRewardDistributionDeferWhenBudgetInsufficient(t *testing.T) {
 	initServiceTestEnv()
 	rewardRequestDao := new(mockRewardRequestDao)
-	projectDao := new(mockProjectDao)
 	projectBudgetDao := new(mockProjectBudgetDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
 	riskChecker := new(mockRiskChecker)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), projectDao,
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		riskChecker, new(mockVoucherIssuer),
 	)
@@ -243,28 +257,34 @@ func TestExecuteRewardDistributionDeferWhenBudgetInsufficient(t *testing.T) {
 		ID:          100,
 		ClientRefID: "ref-defer",
 		ProjectID:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 		Status:      model.RewardRequestStatusPending,
 	}
+	projectBudget := &model.ProjectBudget{ID: 50, AvailableAmount: "10.0"}
 
 	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
 	issueRecordDao := new(mockIssueRecordDao)
 	svc.issueRecordDao = issueRecordDao
 	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-defer").Return(nil, nil)
 	riskChecker.On("Check", mock.Anything, mock.Anything).Return(true, "")
-	projectDao.On("GetByID", mock.Anything, int64(20)).Return(&model.Project{ID: 20}, nil)
 	projectBudgetDao.On(
-		"HasAvailableForDistribution",
+		"GetByProjectIDVoucherTypeUnit",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
+	).Return(projectBudget, nil).Once()
+	issueBudgetDao.On(
+		"GetFirstAvailableForDistribution",
+		mock.Anything, int64(20),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 		"1.0",
-	).Return(false, nil)
+	).Return(nil, nil).Once()
 
 	err := svc.ExecuteRewardDistribution(context.Background(), 100)
-	assert.NoError(t, err)
+	assert.ErrorIs(t, err, ErrDistributionDeferred)
 }
 
 func TestExecuteRewardDistributionSuccess(t *testing.T) {
@@ -290,8 +310,8 @@ func TestExecuteRewardDistributionSuccess(t *testing.T) {
 		ClientRefID: "ref-1",
 		UserID:      10,
 		ProjectID:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 		Status:      model.RewardRequestStatusPending,
 	}
@@ -301,26 +321,18 @@ func TestExecuteRewardDistributionSuccess(t *testing.T) {
 	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
 	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-1").Return(nil, nil).Once()
 	riskChecker.On("Check", mock.Anything, int64(10)).Return(true, "")
-	projectDao.On("GetByID", mock.Anything, int64(20)).Return(&model.Project{ID: 20}, nil)
-	projectBudgetDao.On(
-		"HasAvailableForDistribution",
-		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
-		"1.0",
-	).Return(true, nil)
 	issueBudgetDao.On(
 		"GetFirstAvailableForDistribution",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 		"1.0",
-	).Return(issueBudget, nil).Twice()
+	).Return(issueBudget, nil).Once()
 	projectBudgetDao.On(
 		"GetByProjectIDVoucherTypeUnit",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 	).Return(projectBudget, nil).Once()
 	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
@@ -362,8 +374,8 @@ func TestExecuteRewardDistributionDownstreamCallFailRetry(t *testing.T) {
 		ClientRefID: "ref-retry",
 		UserID:      10,
 		ProjectID:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 		Status:      model.RewardRequestStatusPending,
 	}
@@ -373,26 +385,18 @@ func TestExecuteRewardDistributionDownstreamCallFailRetry(t *testing.T) {
 	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
 	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-retry").Return(nil, nil).Once()
 	riskChecker.On("Check", mock.Anything, int64(10)).Return(true, "")
-	projectDao.On("GetByID", mock.Anything, int64(20)).Return(&model.Project{ID: 20}, nil)
-	projectBudgetDao.On(
-		"HasAvailableForDistribution",
-		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
-		"1.0",
-	).Return(true, nil)
 	issueBudgetDao.On(
 		"GetFirstAvailableForDistribution",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 		"1.0",
-	).Return(issueBudget, nil).Twice()
+	).Return(issueBudget, nil).Once()
 	projectBudgetDao.On(
 		"GetByProjectIDVoucherTypeUnit",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 	).Return(projectBudget, nil).Once()
 	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
@@ -427,8 +431,8 @@ func TestExecuteRewardDistributionBusinessFailureRefund(t *testing.T) {
 		ClientRefID: "ref-1",
 		UserID:      10,
 		ProjectID:   20,
-		VoucherType: rewardpb.VoucherType_CRYPTO.String(),
-		Unit:        rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "1.0",
 		Status:      model.RewardRequestStatusPending,
 	}
@@ -438,26 +442,18 @@ func TestExecuteRewardDistributionBusinessFailureRefund(t *testing.T) {
 	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
 	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-1").Return(nil, nil).Once()
 	riskChecker.On("Check", mock.Anything, int64(10)).Return(true, "")
-	projectDao.On("GetByID", mock.Anything, int64(20)).Return(&model.Project{ID: 20}, nil)
-	projectBudgetDao.On(
-		"HasAvailableForDistribution",
-		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
-		"1.0",
-	).Return(true, nil)
 	issueBudgetDao.On(
 		"GetFirstAvailableForDistribution",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 		"1.0",
-	).Return(issueBudget, nil).Twice()
+	).Return(issueBudget, nil).Once()
 	projectBudgetDao.On(
 		"GetByProjectIDVoucherTypeUnit",
 		mock.Anything, int64(20),
-		rewardpb.VoucherType_CRYPTO.String(),
-		rewardpb.Unit_CRYPTO_USDT.String(),
+		VoucherTypeCrypto,
+		UnitCryptoUSDT,
 	).Return(projectBudget, nil).Once()
 	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)

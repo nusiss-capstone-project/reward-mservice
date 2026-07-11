@@ -150,13 +150,13 @@ func TestCreateIssueRequestSuccess(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("Create", mock.Anything, mock.AnythingOfType("*model.IssueRequest")).Return(nil).Once()
 
 	result, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto",
-		Unit:        "USD",
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "100",
 		ExpenseType: "REWARD",
 	})
@@ -175,12 +175,12 @@ func TestCreateIssueRequestInsufficientAvailable(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "50"}, nil).Once()
 
 	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto",
-		Unit:        "USD",
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "100",
 		ExpenseType: "REWARD",
 	})
@@ -204,15 +204,15 @@ func TestSubmitIssueRequestSuccess(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
@@ -242,13 +242,13 @@ func TestApproveIssueRequestRejected(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
@@ -276,11 +276,11 @@ func TestProcessKafkaEventInitIssueBudget(t *testing.T) {
 
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
 		}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
 		}, nil).Once()
 	issueBudgetDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueBudget")).Return(nil).Once()
 	issueRequestDao.On("MarkOngoing", mock.Anything, mock.Anything, int64(1)).Return(nil).Once()
@@ -321,16 +321,16 @@ func TestUpdateIssueRequestSuccess(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
-	issueRequestDao.On("UpdateFields", mock.Anything, int64(1), "crypto", "USD", "60", "updated").
+	issueRequestDao.On("UpdateFields", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT, "60", "updated").
 		Return(nil).Once()
 
 	result, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
-		VoucherType: "crypto",
-		Unit:        "USD",
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "60",
 		Remark:      "updated",
 	})
@@ -356,8 +356,8 @@ func TestUpdateIssueRequestNotEditable(t *testing.T) {
 		}, nil).Once()
 
 	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
-		VoucherType: "crypto",
-		Unit:        "USD",
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "60",
 	})
 	assert.Error(t, err)
@@ -379,15 +379,15 @@ func TestApproveIssueRequestApproved(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{WithholdAmount: "50"}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
@@ -417,9 +417,9 @@ func TestApproveIssueRequestInsufficientWithhold(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{WithholdAmount: "10"}, nil).Once()
 
 	_, err := svc.ApproveIssueRequest(context.Background(), "doc-1", 1, &data.ApproveIssueRequestRequest{
@@ -491,8 +491,8 @@ func TestCreateIssueRequestInvalidExpenseType(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 
 	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto",
-		Unit:        "USD",
+		VoucherType: VoucherTypeCrypto,
+		Unit:        UnitCryptoUSDT,
 		Amount:      "10",
 		ExpenseType: "INVALID",
 	})
@@ -529,15 +529,15 @@ func TestSubmitIssueRequestFromRejected(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusRejected,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "100"}, nil).Once()
@@ -578,11 +578,11 @@ func TestProcessKafkaEventInitIssueBudgetAlreadyExists(t *testing.T) {
 
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+			ID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
 		}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
+			ID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusApproved,
 		}, nil).Once()
 	issueBudgetDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueBudget")).
 		Return(dao.ErrIssueBudgetAlreadyExists).Once()
@@ -613,7 +613,7 @@ func TestCreateIssueRequestDocNotApproved(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
 
 	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+		VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -691,7 +691,7 @@ func TestIssueRequestWrongProject(t *testing.T) {
 		Return(&model.IssueRequest{ID: 1, ProjectID: 2, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
 
 	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
-		VoucherType: "crypto", Unit: "USD", Amount: "10",
+		VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "10",
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -707,11 +707,11 @@ func TestCreateIssueRequestBudgetNotFound(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(nil, nil).Once()
 
 	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+		VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -750,15 +750,15 @@ func TestSubmitIssueRequestInsufficientAvailableInTx(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusDraft,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "10"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, AvailableAmount: "10"}, nil).Once()
@@ -781,12 +781,12 @@ func TestCreateIssueRequestCreateFailed(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("Create", mock.Anything, mock.AnythingOfType("*model.IssueRequest")).Return(assert.AnError).Once()
 
 	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
-		VoucherType: "crypto", Unit: "USD", Amount: "10", ExpenseType: "REWARD",
+		VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
 }
@@ -803,7 +803,7 @@ func TestUpdateIssueRequestInvalidAmount(t *testing.T) {
 		Return(&model.IssueRequest{ID: 1, ProjectID: 1, RequestStatus: model.IssueRequestStatusDraft}, nil).Once()
 
 	_, err := svc.UpdateIssueRequest(context.Background(), "doc-1", 1, &data.UpdateIssueRequestRequest{
-		VoucherType: "crypto", Unit: "USD", Amount: "bad",
+		VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "bad",
 	})
 	assert.Error(t, err)
 }
@@ -828,15 +828,15 @@ func TestApproveIssueRequestPublishFailure(t *testing.T) {
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 	issueRequestDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{WithholdAmount: "50"}, nil).Once()
 	issueRequestDao.On("GetByIDForUpdate", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.IssueRequest{
-			ID: 1, ProjectID: 1, VoucherType: "crypto", Unit: "USD", Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
+			ID: 1, ProjectID: 1, VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT, Amount: "50", RequestStatus: model.IssueRequestStatusToApprove,
 		}, nil).Once()
-	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), "crypto", "USD").
+	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), VoucherTypeCrypto, UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(10)).
 		Return(&model.ProjectBudget{ID: 10, WithholdAmount: "50"}, nil).Once()

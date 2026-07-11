@@ -7,7 +7,13 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 )
 
-func validateRewardVoucherType(name string) (string, error) {
+// Canonical enum names for tests and seed data; aligned with rewardpb.
+var (
+	VoucherTypeCrypto = rewardpb.VoucherType_CRYPTO.String()
+	UnitCryptoUSDT    = rewardpb.Unit_CRYPTO_USDT.String()
+)
+
+func ValidateVoucherType(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || name == rewardpb.VoucherType_VOUCHER_TYPE_UNSPECIFIED.String() {
 		return "", errs.New(errs.CodeInvalidRequest, "voucher_type is required")
@@ -18,7 +24,7 @@ func validateRewardVoucherType(name string) (string, error) {
 	return name, nil
 }
 
-func validateRewardUnit(name string) (string, error) {
+func ValidateUnit(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || name == rewardpb.Unit_UNIT_UNSPECIFIED.String() {
 		return "", errs.New(errs.CodeInvalidRequest, "unit is required")

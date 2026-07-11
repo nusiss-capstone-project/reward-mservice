@@ -123,15 +123,15 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, []*model.ProjectBudget{
 		{
 			FinanceDocID:    "doc-1",
 			ProjectID:       1,
-			VoucherType:     "crypto",
-			Unit:            "USD",
+			VoucherType:     VoucherTypeCrypto,
+			Unit:            UnitCryptoUSDT,
 			TotalAmount:     "0",
-			AvailableAmount: "100",
+			AvailableAmount: "0",
 			WithholdAmount:  "0",
 			IssuedAmount:    "0",
 			RefundAmount:    "0",
@@ -166,7 +166,7 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(dao.ErrBudgetAlreadyExists).Once()
 
@@ -263,7 +263,7 @@ func TestInitFromApprovedDocBatchCreateError(t *testing.T) {
 			DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved, ApplicationDetail: detail,
 		}, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(assert.AnError).Once()
 

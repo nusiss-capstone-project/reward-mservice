@@ -218,16 +218,20 @@ func (d *ProjectBudgetDaoImpl) ApplyDistributionDeductAvailable(
 	budgetID int64,
 	amount string,
 ) error {
-	err := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
+	ret := dbFrom(d.db, tx).WithContext(ctx).Model(&model.ProjectBudget{}).
 		Where("id = ? and available_amount >= ?", budgetID, amount).
-		Update("available_amount", gorm.Expr("available_amount - ?", amount)).Error
-	if err != nil {
+		Update("available_amount", gorm.Expr("available_amount - ?", amount))
+	log.WithContext(ctx).Infof("apply distribution deduct available: budget_id=%d amount=%s rows_affected=%d", budgetID, amount, ret.RowsAffected)
+	if ret.Error != nil {
 		log.WithContext(ctx).Errorw("deduct project budget available failed",
 			"budget_id", budgetID,
 			"amount", amount,
-			"error", err,
+			"error", ret.Error,
 		)
-		return err
+		return ret.Error
+	}
+	if ret.RowsAffected == 0 {
+		return errors.New("project budget available amount is insufficient")
 	}
 	return nil
 }

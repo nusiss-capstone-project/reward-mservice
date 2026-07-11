@@ -52,7 +52,7 @@ func (p *rewardDistributionExecuteProducerImpl) PublishExecute(ctx context.Conte
 	}
 	key := []byte(fmt.Sprintf("%d", rewardRequestID))
 	defer func() {
-		log.WithContext(ctx).Errorw("failed to publish reward distribution execute event", "reward_request_id", rewardRequestID, "error", err)
+		log.WithContext(ctx).Infof("publish reward distribution execute event done", "reward_request_id", rewardRequestID, "error", err)
 	}()
 	return p.producer.Publish(ctx, p.topic, key, payload)
 }

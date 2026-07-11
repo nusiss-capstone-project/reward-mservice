@@ -444,16 +444,22 @@ func parseIssueRequestInput(voucherType, unit, amount, expenseType string) (*iss
 }
 
 func parseIssueRequestUpdate(voucherType, unit, amount string) (*issueRequestInput, error) {
-	voucherType = strings.TrimSpace(voucherType)
-	unit = strings.TrimSpace(unit)
+	validatedVoucherType, err := ValidateVoucherType(voucherType)
+	if err != nil {
+		return nil, err
+	}
+	validatedUnit, err := ValidateUnit(unit)
+	if err != nil {
+		return nil, err
+	}
 	amount = strings.TrimSpace(amount)
-	if voucherType == "" || unit == "" || amount == "" {
-		return nil, errs.New(errs.CodeInvalidRequest, "voucher_type, unit and amount are required")
+	if amount == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "amount is required")
 	}
 	if _, err := util.ParseAmount(amount); err != nil {
 		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
 	}
-	return &issueRequestInput{voucherType: voucherType, unit: unit, amount: amount}, nil
+	return &issueRequestInput{voucherType: validatedVoucherType, unit: validatedUnit, amount: amount}, nil
 }
 
 func (s *IssueRequestServiceImpl) loadApprovedDoc(ctx context.Context, docID string) (*model.FinanceDoc, error) {

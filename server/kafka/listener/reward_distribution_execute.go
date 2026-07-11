@@ -25,14 +25,8 @@ func handleRewardDistributionExecute(ctx context.Context, msg *kafka.Message) er
 	)
 
 	err := service.GetIssueRecordService().ExecuteRewardDistribution(ctx, event.RewardRequestID)
-	if err == nil {
+	if err == nil || errors.Is(err, service.ErrDistributionDeferred) {
 		return nil
-	}
-	if errors.Is(err, service.ErrDistributionDeferred) {
-		return nil
-	}
-	if errors.Is(err, service.ErrDistributionRetry) {
-		return err
 	}
 	return err
 }

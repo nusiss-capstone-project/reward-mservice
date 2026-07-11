@@ -154,9 +154,9 @@ CREATE TABLE IF NOT EXISTS issue_records (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
-    ('0xabc123wallet001', 'crypto', 'USD', 'ACC-CRYPTO-001'),
-    ('0xdef456wallet002', 'crypto', 'USD', 'ACC-CRYPTO-002'),
-    ('bank-usd-main-001', 'cash', 'USD', 'ACC-CASH-001')
+    ('0xabc123wallet001', 'CRYPTO', 'CRYPTO_USDT', 'ACC-CRYPTO-001'),
+    ('0xdef456wallet002', 'CRYPTO', 'CRYPTO_USDC', 'ACC-CRYPTO-002'),
+    ('bank-usd-main-001', 'COUPON', 'COUPON_CASHBACK', 'ACC-CASH-001')
 ON DUPLICATE KEY UPDATE
     voucher_type = VALUES(voucher_type),
     unit = VALUES(unit),
