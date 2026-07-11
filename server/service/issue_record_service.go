@@ -254,10 +254,16 @@ func (s *IssueRecordServiceImpl) runDistributionAttempt(
 		if err != nil {
 			return err
 		}
+		if record == nil {
+			return nil
+		}
 	} else {
 		projectBudget, issueBudget, err = s.loadDistributionBudgets(ctx, rewardRequest)
 		if err != nil {
 			return err
+		}
+		if projectBudget == nil || issueBudget == nil {
+			return nil
 		}
 		record, err = s.preOccupyBudget(ctx, projectBudget, issueBudget, rewardRequest)
 		if err != nil {
@@ -452,6 +458,20 @@ func (s *IssueRecordServiceImpl) applyDistributionRefundBudgets(
 	return s.issueBudgetDao.ApplyDistributionRefund(ctx, tx, issueBudget.ID, amount)
 }
 
+func (s *IssueRecordServiceImpl) applyDistributionOutcomeBudgets(
+	ctx context.Context,
+	tx *gorm.DB,
+	projectBudget *model.ProjectBudget,
+	issueBudget *model.IssueBudget,
+	amount string,
+	businessSuccess bool,
+) error {
+	if businessSuccess {
+		return s.applyDistributionIssuedBudgets(ctx, tx, projectBudget, issueBudget, amount)
+	}
+	return s.applyDistributionRefundBudgets(ctx, tx, projectBudget, issueBudget, amount)
+}
+
 func (s *IssueRecordServiceImpl) finalizeDistribution(
 	ctx context.Context,
 	rewardRequest *model.RewardRequest,
@@ -465,14 +485,8 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 	applyIssueRecordOutcome(record, amount, businessSuccess, failedReason)
 
 	err := s.txBeginner.Transaction(func(tx *gorm.DB) error {
-		if businessSuccess {
-			if err := s.applyDistributionIssuedBudgets(ctx, tx, projectBudget, issueBudget, amount); err != nil {
-				return err
-			}
-		} else {
-			if err := s.applyDistributionRefundBudgets(ctx, tx, projectBudget, issueBudget, amount); err != nil {
-				return err
-			}
+		if err := s.applyDistributionOutcomeBudgets(ctx, tx, projectBudget, issueBudget, amount, businessSuccess); err != nil {
+			return err
 		}
 
 		if err := s.issueRecordDao.Save(ctx, tx, record); err != nil {
@@ -484,9 +498,6 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 		)
 	})
 	if err != nil {
-		if errors.Is(err, ErrDistributionRetry) {
-			return ErrDistributionRetry
-		}
 		if isRewardRequestAlreadyCompleted(err) {
 			return nil
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/reward-mservice/server/proxy"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/nusiss-capstone-project/reward-mservice/server/util"
 	"github.com/stretchr/testify/assert"
@@ -826,4 +827,465 @@ func TestExecuteRewardDistributionFinalizeAlreadyCompleted(t *testing.T) {
 	err := svc.ExecuteRewardDistribution(context.Background(), 100)
 	assert.NoError(t, err)
 	resultProducer.AssertNotCalled(t, "PublishResult", mock.Anything, mock.Anything)
+}
+
+func TestExecuteRewardDistributionInvalidRewardRequestID(t *testing.T) {
+	initServiceTestEnv()
+	svc := newIssueRecordTestService(
+		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 0)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestExecuteRewardDistributionRewardRequestNotFound(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(nil, nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
+}
+
+func TestExecuteRewardDistributionRewardRequestNotPending(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID:     100,
+		Status: model.RewardRequestStatusCompleted,
+	}, nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
+}
+
+func TestExecuteRewardDistributionGetRewardRequestFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(nil, errors.New("db down"))
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+}
+
+func TestExecuteRewardDistributionGetIssueRecordFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID:          100,
+		ClientRefID: "ref-err",
+		Status:      model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-err").Return(nil, errors.New("db down"))
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+}
+
+func TestExecuteRewardDistributionExistingRecordNotFound(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	existingRecord := &model.IssueRecord{ID: 200, IssueStatus: model.IssueRecordStatusPending}
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-missing", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-missing").Return(existingRecord, nil)
+	issueRecordDao.On("GetByID", mock.Anything, int64(200)).Return(nil, nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestExecuteRewardDistributionExistingRecordIssueRequestIDMissing(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	existingRecord := &model.IssueRecord{
+		ID: 200, IssueStatus: model.IssueRecordStatusPending, ClientReferenceID: "ref-no-issue",
+	}
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-no-issue", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-no-issue").Return(existingRecord, nil)
+	issueRecordDao.On("GetByID", mock.Anything, int64(200)).Return(existingRecord, nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestExecuteRewardDistributionExistingRecordProjectBudgetMissing(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	issueRequestID := int64(40)
+	existingRecord := &model.IssueRecord{
+		ID: 200, ProjectID: 20, IssueRequestID: &issueRequestID,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		IssueStatus: model.IssueRecordStatusPending, ClientReferenceID: "ref-no-pb",
+	}
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-no-pb", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-no-pb").Return(existingRecord, nil)
+	issueRecordDao.On("GetByID", mock.Anything, int64(200)).Return(existingRecord, nil)
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(nil, nil)
+	rewardRequestDao.On(
+		"UpdateStatus", mock.Anything, mock.Anything, int64(100),
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	).Return(nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
+}
+
+func TestExecuteRewardDistributionExistingRecordIssueBudgetMissing(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		projectBudgetDao, issueBudgetDao,
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	issueRequestID := int64(40)
+	existingRecord := &model.IssueRecord{
+		ID: 200, ProjectID: 20, IssueRequestID: &issueRequestID,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		IssueStatus: model.IssueRecordStatusPending, ClientReferenceID: "ref-no-ib",
+	}
+	projectBudget := &model.ProjectBudget{ID: 50}
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-no-ib", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-no-ib").Return(existingRecord, nil)
+	issueRecordDao.On("GetByID", mock.Anything, int64(200)).Return(existingRecord, nil)
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(projectBudget, nil)
+	projectBudgetDao.On("GetByID", mock.Anything, int64(50)).Return(projectBudget, nil)
+	issueBudgetDao.On("GetByIssueRequestID", mock.Anything, int64(40)).Return(nil, nil)
+	rewardRequestDao.On(
+		"UpdateStatus", mock.Anything, mock.Anything, int64(100),
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	).Return(nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
+}
+
+func TestProcessVoucherIssueRequestGetProjectBudgetFailed(t *testing.T) {
+	initServiceTestEnv()
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRecordTestService(
+		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(nil, errors.New("db down"))
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInternalError, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestGetClientRefIDFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	mockProcessBudgetExists(projectBudgetDao)
+	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, errors.New("db down"))
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInternalError, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestCreateDuplicateClientRefIDFromDAO(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	mockProcessBudgetExists(projectBudgetDao)
+	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
+	rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).
+		Return(dao.ErrDuplicateClientRefID)
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeDuplicateClientRefID, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestCreateFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	mockProcessBudgetExists(projectBudgetDao)
+	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
+	rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).
+		Return(errors.New("db down"))
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInternalError, appErr.Code)
+}
+
+func TestExecuteRewardDistributionLoadProjectBudgetFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	riskChecker := new(mockRiskChecker)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		riskChecker, new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-load-pb", ProjectID: 20,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		Amount: "1.0", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-load-pb").Return(nil, nil)
+	riskChecker.On("Check", mock.Anything, mock.Anything).Return(true, "")
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(nil, errors.New("db down"))
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+}
+
+func TestExecuteRewardDistributionLoadIssueBudgetFailed(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	riskChecker := new(mockRiskChecker)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		projectBudgetDao, issueBudgetDao,
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		riskChecker, new(mockVoucherIssuer),
+	)
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(&model.RewardRequest{
+		ID: 100, ClientRefID: "ref-load-ib", ProjectID: 20,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		Amount: "1.0", Status: model.RewardRequestStatusPending,
+	}, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-load-ib").Return(nil, nil)
+	riskChecker.On("Check", mock.Anything, mock.Anything).Return(true, "")
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(&model.ProjectBudget{ID: 50}, nil)
+	issueBudgetDao.On(
+		"GetFirstAvailableForDistribution", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT, "1.0",
+	).Return(nil, errors.New("db down"))
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.Error(t, err)
+}
+
+func TestExecuteRewardDistributionRiskFailureEmptyReason(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	resultProducer := new(mockRewardResultProducer)
+	riskChecker := new(mockRiskChecker)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mockRewardExecuteProducer), resultProducer,
+		riskChecker, new(mockVoucherIssuer),
+	)
+
+	rewardRequest := &model.RewardRequest{
+		ID: 100, ClientRefID: "ref-risk-empty", UserID: 10, ProjectID: 20,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		Amount: "1.0", Status: model.RewardRequestStatusPending,
+	}
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-risk-empty").Return(nil, nil)
+	riskChecker.On("Check", mock.Anything, int64(10)).Return(false, "")
+	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
+	rewardRequestDao.On(
+		"UpdateStatus", mock.Anything, mock.Anything, int64(100),
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	).Return(nil)
+	resultProducer.On("PublishResult", mock.Anything, mock.MatchedBy(func(event producer.RewardDistributionResultEvent) bool {
+		return event.FailedReason == "risk check failed"
+	})).Return(nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
+}
+
+func TestExecuteRewardDistributionBusinessFailureEmptyReason(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mockRewardRequestDao)
+	issueRecordDao := new(mockIssueRecordDao)
+	projectBudgetDao := new(mockProjectBudgetDao)
+	issueBudgetDao := new(mockIssueBudgetDao)
+	resultProducer := new(mockRewardResultProducer)
+	riskChecker := new(mockRiskChecker)
+	voucherIssuer := new(mockVoucherIssuer)
+
+	svc := newIssueRecordTestService(
+		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		projectBudgetDao, issueBudgetDao,
+		new(mockRewardExecuteProducer), resultProducer,
+		riskChecker, voucherIssuer,
+	)
+
+	rewardRequest := &model.RewardRequest{
+		ID: 100, ClientRefID: "ref-biz-empty", UserID: 10, ProjectID: 20,
+		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT,
+		Amount: "1.0", Status: model.RewardRequestStatusPending,
+	}
+	issueBudget := &model.IssueBudget{ID: 30, IssueRequestID: 40, AvailableAmount: "10.0"}
+	projectBudget := &model.ProjectBudget{ID: 50, AvailableAmount: "10.0"}
+
+	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
+	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-biz-empty").Return(nil, nil).Once()
+	riskChecker.On("Check", mock.Anything, int64(10)).Return(true, "")
+	issueBudgetDao.On(
+		"GetFirstAvailableForDistribution", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT, "1.0",
+	).Return(issueBudget, nil).Once()
+	projectBudgetDao.On(
+		"GetByProjectIDVoucherTypeUnit", mock.Anything, int64(20),
+		util.VoucherTypeCrypto, util.UnitCryptoUSDT,
+	).Return(projectBudget, nil).Once()
+	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
+	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
+	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
+	voucherIssuer.On("Issue", mock.Anything, mock.Anything, "1.0").Return(false, "", nil)
+	projectBudgetDao.On("ApplyDistributionRefund", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
+	issueBudgetDao.On("ApplyDistributionRefund", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
+	issueRecordDao.On("Save", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
+	rewardRequestDao.On(
+		"UpdateStatus", mock.Anything, mock.Anything, int64(100),
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	).Return(nil)
+	resultProducer.On("PublishResult", mock.Anything, mock.MatchedBy(func(event producer.RewardDistributionResultEvent) bool {
+		return event.Status == distributionResultStatusFailed &&
+			event.FailedReason == "downstream business failure"
+	})).Return(nil)
+
+	err := svc.ExecuteRewardDistribution(context.Background(), 100)
+	assert.NoError(t, err)
 }
