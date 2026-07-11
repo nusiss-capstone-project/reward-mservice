@@ -38,6 +38,11 @@ type ApproveFinanceDocRequest struct {
 	Remark string `json:"remark"`
 }
 
+type UpdateFinanceDocContentRequest struct {
+	Description       string                    `json:"description"`
+	ApplicationDetail []ApplicationDetailItemVO `json:"application_detail" binding:"required,min=1,dive"`
+}
+
 type UpdateFinanceDocRequest struct {
 	Status string `json:"status" binding:"required"`
 	Remark string `json:"remark"`

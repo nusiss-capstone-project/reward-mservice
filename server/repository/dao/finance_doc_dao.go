@@ -16,6 +16,7 @@ type FinanceDocDao interface {
 	ExistsByProjectID(ctx context.Context, projectID int64) (bool, error)
 	List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error)
 	UpdateStatus(ctx context.Context, docID, status, remark string) error
+	UpdateContent(ctx context.Context, docID, description string, applicationDetail []byte) error
 }
 
 type FinanceDocDaoImpl struct {
@@ -93,6 +94,20 @@ func (d *FinanceDocDaoImpl) UpdateStatus(ctx context.Context, docID, status, rem
 		Where("doc_id = ?", docID).
 		Updates(updates).Error; err != nil {
 		log.WithContext(ctx).Errorf("failed to update finance doc status: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (d *FinanceDocDaoImpl) UpdateContent(ctx context.Context, docID, description string, applicationDetail []byte) error {
+	updates := map[string]interface{}{
+		"description":        description,
+		"application_detail": applicationDetail,
+	}
+	if err := d.db.WithContext(ctx).Model(&model.FinanceDoc{}).
+		Where("doc_id = ?", docID).
+		Updates(updates).Error; err != nil {
+		log.WithContext(ctx).Errorf("failed to update finance doc content: %v", err)
 		return err
 	}
 	return nil

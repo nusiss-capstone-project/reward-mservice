@@ -49,6 +49,7 @@ func NewRouter() *gin.Engine {
 			adminGroup.POST("/finance-docs", api.CreateFinanceDoc)
 			adminGroup.GET("/finance-docs", api.ListFinanceDocs)
 			adminGroup.GET("/finance-docs/:doc_id", api.GetFinanceDocDetail)
+			adminGroup.PUT("/finance-docs/:doc_id", api.UpdateFinanceDoc)
 			adminGroup.PATCH("/finance-docs/:doc_id/submission", api.SubmitFinanceDocForApproval)
 			adminGroup.PATCH("/finance-docs/:doc_id/approval", api.ApproveFinanceDoc)
 			adminGroup.POST("/finance-docs/:doc_id/finance-payments", api.CreateFinancePayment)

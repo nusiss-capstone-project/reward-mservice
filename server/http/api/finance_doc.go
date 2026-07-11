@@ -93,6 +93,39 @@ func GetFinanceDocDetail(c *gin.Context) {
 	WriteSuccess(c, result)
 }
 
+// UpdateFinanceDoc updates finance doc description and application detail.
+//
+// @Summary Update finance doc
+// @Description Update finance doc description and application_detail in DRAFT or REJECTED status.
+// @Tags Admin-FinanceDoc
+// @Accept json
+// @Produce json
+// @Param doc_id path string true "Finance doc ID"
+// @Param body body data.UpdateFinanceDocContentRequest true "Finance doc payload"
+// @Success 200 {object} data.BaseResponse{data=data.FinanceDocVO}
+// @Failure 400 {object} data.BaseResponse
+// @Failure 404 {object} data.BaseResponse
+// @Failure 500 {object} data.BaseResponse
+// @Router /reward-ms/v1/admin/finance-docs/{doc_id} [put]
+func UpdateFinanceDoc(c *gin.Context) {
+	req := &data.UpdateFinanceDocContentRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusBadRequest, data.BaseResponse{
+			Code:   errs.CodeInvalidRequest,
+			ErrMsg: err.Error(),
+		})
+		return
+	}
+
+	docID := c.Param("doc_id")
+	result, err := service.GetFinanceDocService().UpdateFinanceDoc(c.Request.Context(), docID, req)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteSuccess(c, result)
+}
+
 // SubmitFinanceDocForApproval submits a finance doc for approval.
 //
 // @Summary Submit finance doc for approval

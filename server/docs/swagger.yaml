@@ -5,12 +5,9 @@ definitions:
         type: string
       pay_address:
         type: string
-      unit:
-        type: string
     required:
     - amount
     - pay_address
-    - unit
     type: object
   data.ApproveFinanceDocRequest:
     properties:
@@ -249,6 +246,18 @@ definitions:
     required:
     - status
     type: object
+  data.UpdateFinanceDocContentRequest:
+    properties:
+      application_detail:
+        items:
+          $ref: '#/definitions/data.ApplicationDetailItemVO'
+        minItems: 1
+        type: array
+      description:
+        type: string
+    required:
+    - application_detail
+    type: object
   data.UpdateFinanceDocResponse:
     properties:
       doc_id:
@@ -390,6 +399,50 @@ paths:
           schema:
             $ref: '#/definitions/data.BaseResponse'
       summary: Get finance doc detail
+      tags:
+      - Admin-FinanceDoc
+    put:
+      consumes:
+      - application/json
+      description: Update finance doc description and application_detail in DRAFT
+        or REJECTED status.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Finance doc payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateFinanceDocContentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.FinanceDocVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update finance doc
       tags:
       - Admin-FinanceDoc
   /reward-ms/v1/admin/finance-docs/{doc_id}/approval:

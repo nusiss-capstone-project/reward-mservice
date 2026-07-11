@@ -188,6 +188,75 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "description": "Update finance doc description and application_detail in DRAFT or REJECTED status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-FinanceDoc"
+                ],
+                "summary": "Update finance doc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Finance doc payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.UpdateFinanceDocContentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.FinanceDocVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
             }
         },
         "/reward-ms/v1/admin/finance-docs/{doc_id}/approval": {
@@ -1160,17 +1229,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "amount",
-                "pay_address",
-                "unit"
+                "pay_address"
             ],
             "properties": {
                 "amount": {
                     "type": "string"
                 },
                 "pay_address": {
-                    "type": "string"
-                },
-                "unit": {
                     "type": "string"
                 }
             }
@@ -1530,6 +1595,24 @@ const docTemplate = `{
                     "enum": [
                         "TO_APPROVE"
                     ]
+                }
+            }
+        },
+        "data.UpdateFinanceDocContentRequest": {
+            "type": "object",
+            "required": [
+                "application_detail"
+            ],
+            "properties": {
+                "application_detail": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/data.ApplicationDetailItemVO"
+                    }
+                },
+                "description": {
+                    "type": "string"
                 }
             }
         },
