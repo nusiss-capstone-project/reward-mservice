@@ -321,13 +321,11 @@ func TestExecuteRewardDistributionSuccess(t *testing.T) {
 		mock.Anything, int64(20),
 		rewardpb.VoucherType_CRYPTO.String(),
 		rewardpb.Unit_CRYPTO_USDT.String(),
-	).Return(projectBudget, nil).Twice()
-	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(50)).Return(projectBudget, nil).Twice()
-	issueBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(30)).Return(issueBudget, nil).Twice()
-	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
-	voucherIssuer.On("Issue", mock.Anything, mock.Anything, "1.0").Return(true, "", nil)
+	).Return(projectBudget, nil).Once()
 	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
+	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
+	voucherIssuer.On("Issue", mock.Anything, mock.Anything, "1.0").Return(true, "", nil)
 	projectBudgetDao.On("ApplyDistributionIssued", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionIssued", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
 	issueRecordDao.On("Save", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
@@ -395,9 +393,9 @@ func TestExecuteRewardDistributionDownstreamCallFailRetry(t *testing.T) {
 		mock.Anything, int64(20),
 		rewardpb.VoucherType_CRYPTO.String(),
 		rewardpb.Unit_CRYPTO_USDT.String(),
-	).Return(projectBudget, nil).Twice()
-	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(50)).Return(projectBudget, nil)
-	issueBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(30)).Return(issueBudget, nil)
+	).Return(projectBudget, nil).Once()
+	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
+	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
 	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
 	voucherIssuer.On("Issue", mock.Anything, mock.Anything, "1.0").
 		Return(false, "", errors.New("network error"))
@@ -460,14 +458,12 @@ func TestExecuteRewardDistributionBusinessFailureRefund(t *testing.T) {
 		mock.Anything, int64(20),
 		rewardpb.VoucherType_CRYPTO.String(),
 		rewardpb.Unit_CRYPTO_USDT.String(),
-	).Return(projectBudget, nil).Twice()
-	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(50)).Return(projectBudget, nil).Twice()
-	issueBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(30)).Return(issueBudget, nil).Twice()
+	).Return(projectBudget, nil).Once()
+	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
+	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
 	issueRecordDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)
 	voucherIssuer.On("Issue", mock.Anything, mock.Anything, "1.0").
 		Return(false, "asset rejected", nil)
-	projectBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
-	issueBudgetDao.On("ApplyDistributionDeductAvailable", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
 	projectBudgetDao.On("ApplyDistributionRefund", mock.Anything, mock.Anything, int64(50), "1.0").Return(nil)
 	issueBudgetDao.On("ApplyDistributionRefund", mock.Anything, mock.Anything, int64(30), "1.0").Return(nil)
 	issueRecordDao.On("Save", mock.Anything, mock.Anything, mock.AnythingOfType("*model.IssueRecord")).Return(nil)

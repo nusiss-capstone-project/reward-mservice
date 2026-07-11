@@ -79,7 +79,7 @@ func toProjectBudgets(docID string, projectID int64, items []budgetItem) []*mode
 			VoucherType:     item.VoucherType,
 			Unit:            item.Unit,
 			TotalAmount:     "0",
-			AvailableAmount: "0",
+			AvailableAmount: item.Amount,
 			WithholdAmount:  "0",
 			IssuedAmount:    "0",
 			RefundAmount:    "0",
