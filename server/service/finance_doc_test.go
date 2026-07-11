@@ -8,6 +8,7 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
+	"github.com/nusiss-capstone-project/reward-mservice/server/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -97,7 +98,7 @@ func TestCreateFinanceDocSuccess(t *testing.T) {
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1, Name: "P1"}, nil).Once()
 	financeDocDao.On("ExistsByProjectID", mock.Anything, int64(1)).Return(false, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	financeDocDao.On("Create", mock.Anything, mock.AnythingOfType("*model.FinanceDoc")).Return(nil).Once()
 
 	docID, err := svc.CreateFinanceDoc(context.Background(), &data.CreateFinanceDocRequest{
@@ -165,9 +166,9 @@ func TestCreateFinanceDocDuplicateBudgetPair(t *testing.T) {
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
 	financeDocDao.On("ExistsByProjectID", mock.Anything, int64(1)).Return(false, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xdef456wallet002").
-		Return(&model.PaymentConfig{PayAddress: "0xdef456wallet002", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xdef456wallet002", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 
 	_, err := svc.CreateFinanceDoc(context.Background(), &data.CreateFinanceDocRequest{
 		ProjectID: 1,
@@ -358,7 +359,7 @@ func TestListPaymentConfigs(t *testing.T) {
 	svc := &PaymentConfigServiceImpl{paymentConfigDao: paymentConfigDao}
 
 	paymentConfigDao.On("ListAll", mock.Anything).Return([]*model.PaymentConfig{
-		{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, PaymentAccount: "ACC-001"},
+		{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, PaymentAccount: "ACC-001"},
 	}, nil).Once()
 
 	items, err := svc.ListPaymentConfigs(context.Background())
@@ -571,7 +572,7 @@ func TestCreateFinanceDocCreateFailed(t *testing.T) {
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
 	financeDocDao.On("ExistsByProjectID", mock.Anything, int64(1)).Return(false, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: VoucherTypeCrypto, Unit: UnitCryptoUSDT}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	financeDocDao.On("Create", mock.Anything, mock.AnythingOfType("*model.FinanceDoc")).Return(assert.AnError).Once()
 
 	_, err := svc.CreateFinanceDoc(context.Background(), &data.CreateFinanceDocRequest{

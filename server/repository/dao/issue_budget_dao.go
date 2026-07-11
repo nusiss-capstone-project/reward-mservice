@@ -15,6 +15,7 @@ import (
 type IssueBudgetDao interface {
 	Create(ctx context.Context, tx *gorm.DB, budget *model.IssueBudget) error
 	GetByIssueRequestID(ctx context.Context, issueRequestID int64) (*model.IssueBudget, error)
+	GetByID(ctx context.Context, id int64) (*model.IssueBudget, error)
 	GetFirstAvailableForDistribution(
 		ctx context.Context,
 		projectID int64,
@@ -65,6 +66,19 @@ func (d *IssueBudgetDaoImpl) GetByIssueRequestID(ctx context.Context, issueReque
 			return nil, nil
 		}
 		log.WithContext(ctx).Errorw("get issue budget failed", "issue_request_id", issueRequestID, "error", err)
+		return nil, err
+	}
+	return &budget, nil
+}
+
+func (d *IssueBudgetDaoImpl) GetByID(ctx context.Context, id int64) (*model.IssueBudget, error) {
+	var budget model.IssueBudget
+	err := d.db.WithContext(ctx).Where("id = ?", id).First(&budget).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorw("get issue budget by id failed", "budget_id", id, "error", err)
 		return nil, err
 	}
 	return &budget, nil

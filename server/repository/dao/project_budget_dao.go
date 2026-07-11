@@ -17,6 +17,7 @@ type ProjectBudgetDao interface {
 	CountByFinanceDocID(ctx context.Context, docID string) (int64, error)
 	GetByDocIDVoucherTypeUnit(ctx context.Context, docID, voucherType, unit string) (*model.ProjectBudget, error)
 	GetByProjectIDVoucherTypeUnit(ctx context.Context, projectID int64, voucherType, unit string) (*model.ProjectBudget, error)
+	GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error)
 	LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error)
 	UpdateTotalAndAvailableAmount(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
 	ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error
@@ -105,6 +106,19 @@ func (d *ProjectBudgetDaoImpl) GetByProjectIDVoucherTypeUnit(
 		}
 		log.WithContext(ctx).Errorf("get project budget by project failed: project_id=%d voucher_type=%s unit=%s err=%v",
 			projectID, voucherType, unit, err)
+		return nil, err
+	}
+	return &budget, nil
+}
+
+func (d *ProjectBudgetDaoImpl) GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error) {
+	var budget model.ProjectBudget
+	err := d.db.WithContext(ctx).Where("id = ?", id).First(&budget).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorf("get project budget by id failed: budget_id=%d err=%v", id, err)
 		return nil, err
 	}
 	return &budget, nil

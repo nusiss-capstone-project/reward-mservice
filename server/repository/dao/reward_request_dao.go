@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
@@ -15,7 +16,7 @@ type RewardRequestDao interface {
 	Create(ctx context.Context, tx *gorm.DB, request *model.RewardRequest) error
 	GetByClientRefID(ctx context.Context, clientRefID string) (*model.RewardRequest, error)
 	GetByID(ctx context.Context, id int64) (*model.RewardRequest, error)
-	UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, status string) error
+	UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus string) error
 }
 
 var (
@@ -82,22 +83,37 @@ func (d *rewardRequestDaoImpl) GetByID(ctx context.Context, id int64) (*model.Re
 	return &request, nil
 }
 
-func (d *rewardRequestDaoImpl) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, status string) error {
-	err := dbFrom(d.db, tx).WithContext(ctx).
+func (d *rewardRequestDaoImpl) UpdateStatus(
+	ctx context.Context,
+	tx *gorm.DB,
+	id int64,
+	fromStatus, toStatus string,
+) error {
+	ret := dbFrom(d.db, tx).WithContext(ctx).
 		Model(&model.RewardRequest{}).
-		Where("id = ?", id).
-		Update("status", status).Error
-	if err != nil {
+		Where("id = ? AND status = ?", id, fromStatus).
+		Update("status", toStatus)
+	if ret.Error != nil {
 		log.WithContext(ctx).Errorw("update reward request status failed",
 			"reward_request_id", id,
-			"status", status,
-			"error", err,
+			"from_status", fromStatus,
+			"to_status", toStatus,
+			"error", ret.Error,
 		)
-		return err
+		return ret.Error
+	}
+	if ret.RowsAffected == 0 {
+		log.WithContext(ctx).Errorw("reward request status not match",
+			"reward_request_id", id,
+			"from_status", fromStatus,
+			"to_status", toStatus,
+		)
+		return errs.New(errs.CodeInvalidStatusTransition, "reward request status transition failed")
 	}
 	log.WithContext(ctx).Infow("reward request status updated",
 		"reward_request_id", id,
-		"status", status,
+		"from_status", fromStatus,
+		"to_status", toStatus,
 	)
 	return nil
 }

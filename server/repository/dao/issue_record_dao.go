@@ -14,6 +14,7 @@ import (
 type IssueRecordDao interface {
 	Create(ctx context.Context, tx *gorm.DB, issueRecord *model.IssueRecord) error
 	Save(ctx context.Context, tx *gorm.DB, issueRecord *model.IssueRecord) error
+	GetByID(ctx context.Context, id int64) (*model.IssueRecord, error)
 	GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error)
 }
 
@@ -61,6 +62,19 @@ func (d *issueRecordDaoImpl) Save(ctx context.Context, tx *gorm.DB, issueRecord 
 		return err
 	}
 	return nil
+}
+
+func (d *issueRecordDaoImpl) GetByID(ctx context.Context, id int64) (*model.IssueRecord, error) {
+	var record model.IssueRecord
+	err := d.db.WithContext(ctx).Where("id = ?", id).First(&record).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		log.WithContext(ctx).Errorw("get issue record by id failed", "issue_record_id", id, "error", err)
+		return nil, err
+	}
+	return &record, nil
 }
 
 func (d *issueRecordDaoImpl) GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error) {

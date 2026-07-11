@@ -444,11 +444,11 @@ func parseIssueRequestInput(voucherType, unit, amount, expenseType string) (*iss
 }
 
 func parseIssueRequestUpdate(voucherType, unit, amount string) (*issueRequestInput, error) {
-	validatedVoucherType, err := ValidateVoucherType(voucherType)
+	validatedVoucherType, err := util.ValidateVoucherType(voucherType)
 	if err != nil {
 		return nil, err
 	}
-	validatedUnit, err := ValidateUnit(unit)
+	validatedUnit, err := util.ValidateUnit(unit)
 	if err != nil {
 		return nil, err
 	}

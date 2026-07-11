@@ -95,17 +95,17 @@ func (_m *RewardRequestDao) GetByID(ctx context.Context, id int64) (*model.Rewar
 	return r0, r1
 }
 
-// UpdateStatus provides a mock function with given fields: ctx, tx, id, status
-func (_m *RewardRequestDao) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, status string) error {
-	ret := _m.Called(ctx, tx, id, status)
+// UpdateStatus provides a mock function with given fields: ctx, tx, id, fromStatus, toStatus
+func (_m *RewardRequestDao) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus string) error {
+	ret := _m.Called(ctx, tx, id, fromStatus, toStatus)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateStatus")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
-		r0 = rf(ctx, tx, id, status)
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string, string) error); ok {
+		r0 = rf(ctx, tx, id, fromStatus, toStatus)
 	} else {
 		r0 = ret.Error(0)
 	}

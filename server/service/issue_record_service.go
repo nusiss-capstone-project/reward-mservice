@@ -183,7 +183,13 @@ func (s *IssueRecordServiceImpl) ensureCompletedAndSkip(
 	if rewardRequest.Status == model.RewardRequestStatusCompleted {
 		return nil
 	}
-	if err := s.rewardRequestDao.UpdateStatus(ctx, nil, rewardRequest.ID, model.RewardRequestStatusCompleted); err != nil {
+	if err := s.rewardRequestDao.UpdateStatus(
+		ctx, nil, rewardRequest.ID,
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	); err != nil {
+		if isRewardRequestAlreadyCompleted(err) {
+			return nil
+		}
 		return err
 	}
 	return s.publishTerminalResult(ctx, rewardRequest, record)
@@ -218,7 +224,10 @@ func (s *IssueRecordServiceImpl) tryHandleRiskFailure(
 		if err := s.issueRecordDao.Create(ctx, tx, record); err != nil {
 			return err
 		}
-		return s.rewardRequestDao.UpdateStatus(ctx, tx, rewardRequest.ID, model.RewardRequestStatusCompleted)
+		return s.rewardRequestDao.UpdateStatus(
+			ctx, tx, rewardRequest.ID,
+			model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+		)
 	})
 	if err != nil {
 		return true, err
@@ -236,44 +245,20 @@ func (s *IssueRecordServiceImpl) runDistributionAttempt(
 	rewardRequest *model.RewardRequest,
 	existingIssueRecord *model.IssueRecord,
 ) error {
-	projectBudget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(
-		ctx,
-		rewardRequest.ProjectID,
-		rewardRequest.VoucherType,
-		rewardRequest.Unit,
-	)
-	if err != nil {
-		return err
-	}
-	if projectBudget == nil {
-		log.WithContext(ctx).Errorw("invalid request, project budget not found",
-			"reward_request_id", rewardRequest.ID,
-			"project_id", rewardRequest.ProjectID,
-			"voucher_type", rewardRequest.VoucherType,
-			"unit", rewardRequest.Unit,
-		)
-		return s.rewardRequestDao.UpdateStatus(ctx, nil, rewardRequest.ID, model.RewardRequestStatusCompleted)
-	}
-	issueBudget, err := s.issueBudgetDao.GetFirstAvailableForDistribution(
-		ctx,
-		rewardRequest.ProjectID,
-		rewardRequest.VoucherType,
-		rewardRequest.Unit,
-		rewardRequest.Amount,
-	)
-	if err != nil {
-		return err
-	}
-	if issueBudget == nil {
-		log.WithContext(ctx).Infow("issue budget insufficient, defer distribution",
-			"reward_request_id", rewardRequest.ID,
-		)
-		return ErrDistributionDeferred
-	}
+	var projectBudget *model.ProjectBudget
+	var issueBudget *model.IssueBudget
 	var record *model.IssueRecord
+	var err error
 	if existingIssueRecord != nil {
-		record = existingIssueRecord
+		projectBudget, issueBudget, record, err = s.loadExistingDistributionBudgets(ctx, rewardRequest, existingIssueRecord)
+		if err != nil {
+			return err
+		}
 	} else {
+		projectBudget, issueBudget, err = s.loadDistributionBudgets(ctx, rewardRequest)
+		if err != nil {
+			return err
+		}
 		record, err = s.preOccupyBudget(ctx, projectBudget, issueBudget, rewardRequest)
 		if err != nil {
 			return err
@@ -297,6 +282,117 @@ func (s *IssueRecordServiceImpl) runDistributionAttempt(
 	}
 
 	return s.finalizeDistribution(ctx, rewardRequest, record, issueBudget, projectBudget, businessSuccess, failedReason)
+}
+
+func (s *IssueRecordServiceImpl) loadDistributionBudgets(
+	ctx context.Context,
+	rewardRequest *model.RewardRequest,
+) (*model.ProjectBudget, *model.IssueBudget, error) {
+	projectBudget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(
+		ctx,
+		rewardRequest.ProjectID,
+		rewardRequest.VoucherType,
+		rewardRequest.Unit,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	if projectBudget == nil {
+		log.WithContext(ctx).Errorw("invalid request, project budget not found",
+			"reward_request_id", rewardRequest.ID,
+			"project_id", rewardRequest.ProjectID,
+			"voucher_type", rewardRequest.VoucherType,
+			"unit", rewardRequest.Unit,
+		)
+		return nil, nil, s.handleRewardRequestComplete(ctx, rewardRequest.ID)
+	}
+
+	issueBudget, err := s.issueBudgetDao.GetFirstAvailableForDistribution(
+		ctx,
+		rewardRequest.ProjectID,
+		rewardRequest.VoucherType,
+		rewardRequest.Unit,
+		rewardRequest.Amount,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	if issueBudget == nil {
+		log.WithContext(ctx).Infow("issue budget insufficient, defer distribution",
+			"reward_request_id", rewardRequest.ID,
+		)
+		return nil, nil, ErrDistributionDeferred
+	}
+	return projectBudget, issueBudget, nil
+}
+
+func (s *IssueRecordServiceImpl) loadExistingDistributionBudgets(
+	ctx context.Context,
+	rewardRequest *model.RewardRequest,
+	existingIssueRecord *model.IssueRecord,
+) (*model.ProjectBudget, *model.IssueBudget, *model.IssueRecord, error) {
+	record, err := s.issueRecordDao.GetByID(ctx, existingIssueRecord.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if record == nil {
+		return nil, nil, nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "issue record not found"),
+			errs.LogInputError, "issue_record_id", existingIssueRecord.ID)
+	}
+	if record.IssueRequestID == nil {
+		return nil, nil, nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "issue_request_id is required"),
+			errs.LogInputError, "issue_record_id", record.ID)
+	}
+
+	projectBudgetRef, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(
+		ctx,
+		record.ProjectID,
+		record.VoucherType,
+		record.Unit,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if projectBudgetRef == nil {
+		log.WithContext(ctx).Errorw("invalid request, project budget not found for existing issue record",
+			"reward_request_id", rewardRequest.ID,
+			"issue_record_id", record.ID,
+			"project_id", record.ProjectID,
+			"voucher_type", record.VoucherType,
+			"unit", record.Unit,
+		)
+		return nil, nil, nil, s.handleRewardRequestComplete(ctx, rewardRequest.ID)
+	}
+	projectBudget, err := s.projectBudgetDao.GetByID(ctx, projectBudgetRef.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if projectBudget == nil {
+		return nil, nil, nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "project budget not found"),
+			errs.LogInputError, "project_budget_id", projectBudgetRef.ID)
+	}
+
+	issueBudgetRef, err := s.issueBudgetDao.GetByIssueRequestID(ctx, *record.IssueRequestID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if issueBudgetRef == nil {
+		log.WithContext(ctx).Errorw("issue budget not found for existing issue record",
+			"reward_request_id", rewardRequest.ID,
+			"issue_record_id", record.ID,
+			"issue_request_id", *record.IssueRequestID,
+		)
+		return nil, nil, nil, s.handleRewardRequestComplete(ctx, rewardRequest.ID)
+	}
+	issueBudget, err := s.issueBudgetDao.GetByID(ctx, issueBudgetRef.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if issueBudget == nil {
+		return nil, nil, nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "issue budget not found"),
+			errs.LogInputError, "issue_budget_id", issueBudgetRef.ID)
+	}
+	return projectBudget, issueBudget, record, nil
 }
 
 func (s *IssueRecordServiceImpl) preOccupyBudget(
@@ -330,6 +426,32 @@ func (s *IssueRecordServiceImpl) preOccupyBudget(
 	return record, err
 }
 
+func (s *IssueRecordServiceImpl) applyDistributionIssuedBudgets(
+	ctx context.Context,
+	tx *gorm.DB,
+	projectBudget *model.ProjectBudget,
+	issueBudget *model.IssueBudget,
+	amount string,
+) error {
+	if err := s.projectBudgetDao.ApplyDistributionIssued(ctx, tx, projectBudget.ID, amount); err != nil {
+		return err
+	}
+	return s.issueBudgetDao.ApplyDistributionIssued(ctx, tx, issueBudget.ID, amount)
+}
+
+func (s *IssueRecordServiceImpl) applyDistributionRefundBudgets(
+	ctx context.Context,
+	tx *gorm.DB,
+	projectBudget *model.ProjectBudget,
+	issueBudget *model.IssueBudget,
+	amount string,
+) error {
+	if err := s.projectBudgetDao.ApplyDistributionRefund(ctx, tx, projectBudget.ID, amount); err != nil {
+		return err
+	}
+	return s.issueBudgetDao.ApplyDistributionRefund(ctx, tx, issueBudget.ID, amount)
+}
+
 func (s *IssueRecordServiceImpl) finalizeDistribution(
 	ctx context.Context,
 	rewardRequest *model.RewardRequest,
@@ -340,32 +462,15 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 	failedReason string,
 ) error {
 	amount := rewardRequest.Amount
-	if businessSuccess {
-		record.IssueStatus = model.IssueRecordStatusIssued
-		record.RewardAmount = amount
-		record.Reason = ""
-	} else {
-		record.IssueStatus = model.IssueRecordStatusFailed
-		record.RewardAmount = "0"
-		record.Reason = failedReason
-		if record.Reason == "" {
-			record.Reason = "downstream business failure"
-		}
-	}
+	applyIssueRecordOutcome(record, amount, businessSuccess, failedReason)
 
 	err := s.txBeginner.Transaction(func(tx *gorm.DB) error {
 		if businessSuccess {
-			if err := s.projectBudgetDao.ApplyDistributionIssued(ctx, tx, projectBudget.ID, amount); err != nil {
-				return err
-			}
-			if err := s.issueBudgetDao.ApplyDistributionIssued(ctx, tx, issueBudget.ID, amount); err != nil {
+			if err := s.applyDistributionIssuedBudgets(ctx, tx, projectBudget, issueBudget, amount); err != nil {
 				return err
 			}
 		} else {
-			if err := s.projectBudgetDao.ApplyDistributionRefund(ctx, tx, projectBudget.ID, amount); err != nil {
-				return err
-			}
-			if err := s.issueBudgetDao.ApplyDistributionRefund(ctx, tx, issueBudget.ID, amount); err != nil {
+			if err := s.applyDistributionRefundBudgets(ctx, tx, projectBudget, issueBudget, amount); err != nil {
 				return err
 			}
 		}
@@ -373,11 +478,17 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 		if err := s.issueRecordDao.Save(ctx, tx, record); err != nil {
 			return err
 		}
-		return s.rewardRequestDao.UpdateStatus(ctx, tx, rewardRequest.ID, model.RewardRequestStatusCompleted)
+		return s.rewardRequestDao.UpdateStatus(
+			ctx, tx, rewardRequest.ID,
+			model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+		)
 	})
 	if err != nil {
 		if errors.Is(err, ErrDistributionRetry) {
 			return ErrDistributionRetry
+		}
+		if isRewardRequestAlreadyCompleted(err) {
+			return nil
 		}
 		return err
 	}
@@ -410,6 +521,22 @@ func (s *IssueRecordServiceImpl) publishTerminalResult(
 	return s.resultProducer.PublishResult(ctx, event)
 }
 
+func applyIssueRecordOutcome(record *model.IssueRecord, amount string, businessSuccess bool, failedReason string) {
+	if businessSuccess {
+		record.IssueStatus = model.IssueRecordStatusIssued
+		record.RewardAmount = amount
+		record.Reason = ""
+		return
+	}
+
+	record.IssueStatus = model.IssueRecordStatusFailed
+	record.RewardAmount = "0"
+	record.Reason = failedReason
+	if record.Reason == "" {
+		record.Reason = "downstream business failure"
+	}
+}
+
 type rewardDistributionInput struct {
 	clientRefID string
 	userID      int64
@@ -431,11 +558,11 @@ func parseRewardDistributionRequest(request *rewardpb.RewardDistributionRequest)
 		return nil, errs.New(errs.CodeInvalidRequest, "project_id is required")
 	}
 
-	voucherType, err := ValidateVoucherType(request.GetVoucherType())
+	voucherType, err := util.ValidateVoucherType(request.GetVoucherType())
 	if err != nil {
 		return nil, err
 	}
-	unit, err := ValidateUnit(request.GetUnit())
+	unit, err := util.ValidateUnit(request.GetUnit())
 	if err != nil {
 		return nil, err
 	}
@@ -457,6 +584,22 @@ func parseRewardDistributionRequest(request *rewardpb.RewardDistributionRequest)
 
 func generateVoucherID() string {
 	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+func isRewardRequestAlreadyCompleted(err error) bool {
+	var appErr *errs.AppError
+	return errors.As(err, &appErr) && appErr.Code == errs.CodeInvalidStatusTransition
+}
+
+func (s *IssueRecordServiceImpl) handleRewardRequestComplete(ctx context.Context, rewardRequestID int64) error {
+	err := s.rewardRequestDao.UpdateStatus(
+		ctx, nil, rewardRequestID,
+		model.RewardRequestStatusPending, model.RewardRequestStatusCompleted,
+	)
+	if err != nil && isRewardRequestAlreadyCompleted(err) {
+		return nil
+	}
+	return err
 }
 
 func issueRecordErr(ctx context.Context, err error, logMsg string, kv ...any) error {
