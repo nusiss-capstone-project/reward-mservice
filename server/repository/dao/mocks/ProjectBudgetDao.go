@@ -35,6 +35,60 @@ func (_m *ProjectBudgetDao) ApplyApproveIssued(ctx context.Context, tx *gorm.DB,
 	return r0
 }
 
+// ApplyDistributionDeductAvailable provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *ProjectBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionDeductAvailable")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ApplyDistributionIssued provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *ProjectBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionIssued")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ApplyDistributionRefund provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *ProjectBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionRefund")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // ApplyRejectRelease provides a mock function with given fields: ctx, tx, budgetID, amount
 func (_m *ProjectBudgetDao) ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
 	ret := _m.Called(ctx, tx, budgetID, amount)
@@ -170,6 +224,64 @@ func (_m *ProjectBudgetDao) GetByProjectIDVoucherTypeUnit(ctx context.Context, p
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64, string, string) error); ok {
 		r1 = rf(ctx, projectID, voucherType, unit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetByID provides a mock function with given fields: ctx, id
+func (_m *ProjectBudgetDao) GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByID")
+	}
+
+	var r0 *model.ProjectBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*model.ProjectBudget, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *model.ProjectBudget); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.ProjectBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// HasAvailableForDistribution provides a mock function with given fields: ctx, projectID, voucherType, unit, amount
+func (_m *ProjectBudgetDao) HasAvailableForDistribution(ctx context.Context, projectID int64, voucherType string, unit string, amount string) (bool, error) {
+	ret := _m.Called(ctx, projectID, voucherType, unit, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasAvailableForDistribution")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string, string) (bool, error)); ok {
+		return rf(ctx, projectID, voucherType, unit, amount)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string, string) bool); ok {
+		r0 = rf(ctx, projectID, voucherType, unit, amount)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, string, string, string) error); ok {
+		r1 = rf(ctx, projectID, voucherType, unit, amount)
 	} else {
 		r1 = ret.Error(1)
 	}

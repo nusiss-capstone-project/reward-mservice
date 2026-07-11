@@ -15,6 +15,7 @@ type IssueBudget struct {
 	AvailableAmount string    `gorm:"type:decimal(20,8);not null;default:0"`
 	TotalAmount     string    `gorm:"type:decimal(20,8);not null;default:0"`
 	IssuedAmount    string    `gorm:"type:decimal(20,8);not null;default:0"`
+	RefundAmount    string    `gorm:"type:decimal(20,8);not null;default:0"`
 	Status          string    `gorm:"type:varchar(32);not null;default:ONGOING"`
 	CreatedAt       time.Time `gorm:"autoCreateTime"`
 	UpdatedAt       time.Time `gorm:"autoUpdateTime"`

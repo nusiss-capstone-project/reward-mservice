@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS issue_budget (
     available_amount DECIMAL(20, 8) NOT NULL DEFAULT 0,
     total_amount     DECIMAL(20, 8) NOT NULL DEFAULT 0,
     issued_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    refund_amount    DECIMAL(20, 8) NOT NULL DEFAULT 0,
     status           VARCHAR(32)    NOT NULL DEFAULT 'ONGOING',
     created_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at       DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -108,10 +109,54 @@ CREATE TABLE IF NOT EXISTS issue_budget (
     CONSTRAINT fk_issue_budget_request FOREIGN KEY (issue_request_id) REFERENCES issue_requests (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS reward_requests (
+    id             BIGINT         NOT NULL AUTO_INCREMENT,
+    client_ref_id  VARCHAR(128)   NOT NULL,
+    user_id        BIGINT         NOT NULL,
+    project_id     BIGINT         NOT NULL,
+    voucher_type   VARCHAR(64)    NOT NULL,
+    unit           VARCHAR(32)    NOT NULL,
+    amount         DECIMAL(20, 8) NOT NULL,
+    status         VARCHAR(32)    NOT NULL DEFAULT 'PENDING',
+    created_at     DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at     DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_reward_requests_client_ref_id (client_ref_id),
+    KEY idx_reward_requests_project_id (project_id),
+    KEY idx_reward_requests_status (status),
+    CONSTRAINT fk_reward_requests_project FOREIGN KEY (project_id) REFERENCES projects (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS issue_records (
+    id                  BIGINT         NOT NULL AUTO_INCREMENT,
+    voucher_id          VARCHAR(128)   NOT NULL,
+    reward_request_id   BIGINT         NOT NULL,
+    issue_request_id    BIGINT         NULL,
+    project_id          BIGINT         NOT NULL,
+    user_id             BIGINT         NOT NULL,
+    voucher_type        VARCHAR(64)    NOT NULL,
+    unit                VARCHAR(32)    NOT NULL,
+    reward_amount       DECIMAL(20, 8) NOT NULL DEFAULT 0,
+    issue_status        VARCHAR(32)    NOT NULL,
+    offset_status       VARCHAR(32)    NOT NULL DEFAULT '',
+    reason              VARCHAR(512)   NOT NULL DEFAULT '',
+    client_reference_id VARCHAR(128)   NOT NULL,
+    created_at          DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at          DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_issue_records_voucher_id (voucher_id),
+    UNIQUE KEY uk_issue_records_reward_request_id (reward_request_id),
+    KEY idx_issue_records_client_reference_id (client_reference_id),
+    KEY idx_issue_records_issue_request_id (issue_request_id),
+    CONSTRAINT fk_issue_records_reward_request FOREIGN KEY (reward_request_id) REFERENCES reward_requests (id),
+    CONSTRAINT fk_issue_records_issue_request FOREIGN KEY (issue_request_id) REFERENCES issue_requests (id),
+    CONSTRAINT fk_issue_records_project FOREIGN KEY (project_id) REFERENCES projects (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
-    ('0xabc123wallet001', 'crypto', 'USD', 'ACC-CRYPTO-001'),
-    ('0xdef456wallet002', 'crypto', 'USD', 'ACC-CRYPTO-002'),
-    ('bank-usd-main-001', 'cash', 'USD', 'ACC-CASH-001')
+    ('0xabc123wallet001', 'CRYPTO', 'CRYPTO_USDT', 'ACC-CRYPTO-001'),
+    ('0xdef456wallet002', 'CRYPTO', 'CRYPTO_USDC', 'ACC-CRYPTO-002'),
+    ('bank-usd-main-001', 'COUPON', 'COUPON_CASHBACK', 'ACC-CASH-001')
 ON DUPLICATE KEY UPDATE
     voucher_type = VALUES(voucher_type),
     unit = VALUES(unit),

@@ -11,6 +11,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Temporary binaries created by Go debugger (Delve / VS Code / Cursor)
+__debug_bin*
+
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*

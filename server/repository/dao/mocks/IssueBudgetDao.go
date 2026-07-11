@@ -17,6 +17,60 @@ type IssueBudgetDao struct {
 	mock.Mock
 }
 
+// ApplyDistributionDeductAvailable provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *IssueBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionDeductAvailable")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ApplyDistributionIssued provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *IssueBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionIssued")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ApplyDistributionRefund provides a mock function with given fields: ctx, tx, budgetID, amount
+func (_m *IssueBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	ret := _m.Called(ctx, tx, budgetID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDistributionRefund")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64, string) error); ok {
+		r0 = rf(ctx, tx, budgetID, amount)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Create provides a mock function with given fields: ctx, tx, budget
 func (_m *IssueBudgetDao) Create(ctx context.Context, tx *gorm.DB, budget *model.IssueBudget) error {
 	ret := _m.Called(ctx, tx, budget)
@@ -58,6 +112,96 @@ func (_m *IssueBudgetDao) GetByIssueRequestID(ctx context.Context, issueRequestI
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, issueRequestID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetByID provides a mock function with given fields: ctx, id
+func (_m *IssueBudgetDao) GetByID(ctx context.Context, id int64) (*model.IssueBudget, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByID")
+	}
+
+	var r0 *model.IssueBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*model.IssueBudget, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *model.IssueBudget); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.IssueBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetFirstAvailableForDistribution provides a mock function with given fields: ctx, projectID, voucherType, unit, amount
+func (_m *IssueBudgetDao) GetFirstAvailableForDistribution(ctx context.Context, projectID int64, voucherType string, unit string, amount string) (*model.IssueBudget, error) {
+	ret := _m.Called(ctx, projectID, voucherType, unit, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFirstAvailableForDistribution")
+	}
+
+	var r0 *model.IssueBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string, string) (*model.IssueBudget, error)); ok {
+		return rf(ctx, projectID, voucherType, unit, amount)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string, string) *model.IssueBudget); ok {
+		r0 = rf(ctx, projectID, voucherType, unit, amount)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.IssueBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, string, string, string) error); ok {
+		r1 = rf(ctx, projectID, voucherType, unit, amount)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// LockByID provides a mock function with given fields: ctx, tx, budgetID
+func (_m *IssueBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.IssueBudget, error) {
+	ret := _m.Called(ctx, tx, budgetID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockByID")
+	}
+
+	var r0 *model.IssueBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64) (*model.IssueBudget, error)); ok {
+		return rf(ctx, tx, budgetID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, int64) *model.IssueBudget); ok {
+		r0 = rf(ctx, tx, budgetID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.IssueBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, int64) error); ok {
+		r1 = rf(ctx, tx, budgetID)
 	} else {
 		r1 = ret.Error(1)
 	}

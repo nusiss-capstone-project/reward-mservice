@@ -36,6 +36,7 @@ type GrpcConfig struct {
 }
 
 type SystemConfig struct {
+	ServiceName    string   `mapstructure:"service_name"`
 	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 

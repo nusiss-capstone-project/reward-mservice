@@ -6,6 +6,7 @@ option go_package = "/rewardpb;rewardpb";
 
 service RewardService {
   rpc SayHello (HelloRequest) returns (HelloResponse);
+  rpc Reward (RewardDistributionRequest) returns (RewardDistributionResponse);
 }
 
 message HelloRequest {
@@ -14,4 +15,60 @@ message HelloRequest {
 
 message HelloResponse {
   string message = 1;
+}
+
+enum ErrorCode {
+  ERROR_UNSPECIFIED = 0;
+  OK = 1;
+  INVALID_PARAM = 2;
+  DATA_NOT_EXIST = 3;
+  UNKNOWN_ERROR = 100;
+}
+
+enum VoucherType {
+  VOUCHER_TYPE_UNSPECIFIED = 0;
+  CRYPTO = 1;
+  COUPON = 2;
+  POINT = 3;
+}
+
+enum Unit {
+  UNIT_UNSPECIFIED = 0;
+  CRYPTO_BTC = 1001;
+  CRYPTO_ETH = 1002;
+  CRYPTO_USDT = 1003;
+  CRYPTO_USDC = 1004;
+  
+  COUPON_CASHBACK = 2001;
+  COUPON_DISCOUNT = 2002;
+  COUPON_TRADING_FEE_REBATE = 2003;
+  
+  POINT_USER_POINTS = 3001;
+}
+
+message BaseResponseInfo {
+  ErrorCode code = 1;
+  string message = 2;
+}
+
+message BaseRequestInfo {
+  string from = 1; 
+  string to = 2;
+}
+
+message RewardDistributionRequest {
+  string clientRefId = 1;
+	uint64 userId = 2;
+	uint64 projectId = 3;
+	string voucherType = 4;
+	string unit = 5;
+	string amount = 6;
+	
+	BaseRequestInfo baseInfo = 255;
+}
+
+message RewardDistributionResponse {
+  string clientRefId = 1;
+  string voucherId = 2;
+  BaseResponseInfo baseInfo = 255;
 }

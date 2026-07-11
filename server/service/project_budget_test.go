@@ -8,6 +8,7 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
+	"github.com/nusiss-capstone-project/reward-mservice/server/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
@@ -47,6 +48,14 @@ func (m *mockProjectBudgetDao) GetByProjectIDVoucherTypeUnit(
 	return args.Get(0).(*model.ProjectBudget), args.Error(1)
 }
 
+func (m *mockProjectBudgetDao) GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ProjectBudget), args.Error(1)
+}
+
 func (m *mockProjectBudgetDao) ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
 	args := m.Called(ctx, tx, budgetID, amount)
 	return args.Error(0)
@@ -75,6 +84,30 @@ func (m *mockProjectBudgetDao) UpdateTotalAndAvailableAmount(ctx context.Context
 	return args.Error(0)
 }
 
+func (m *mockProjectBudgetDao) HasAvailableForDistribution(
+	ctx context.Context,
+	projectID int64,
+	voucherType, unit, amount string,
+) (bool, error) {
+	args := m.Called(ctx, projectID, voucherType, unit, amount)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
+func (m *mockProjectBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
+	args := m.Called(ctx, tx, budgetID, amount)
+	return args.Error(0)
+}
+
 func TestInitFromApprovedDocSuccess(t *testing.T) {
 	initServiceTestEnv()
 	financeDocDao := new(mockFinanceDocDao)
@@ -99,15 +132,15 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, []*model.ProjectBudget{
 		{
 			FinanceDocID:    "doc-1",
 			ProjectID:       1,
-			VoucherType:     "crypto",
-			Unit:            "USD",
+			VoucherType:     util.VoucherTypeCrypto,
+			Unit:            util.UnitCryptoUSDT,
 			TotalAmount:     "0",
-			AvailableAmount: "100",
+			AvailableAmount: "0",
 			WithholdAmount:  "0",
 			IssuedAmount:    "0",
 			RefundAmount:    "0",
@@ -142,7 +175,7 @@ func TestInitFromApprovedDocIdempotent(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(dao.ErrBudgetAlreadyExists).Once()
 
@@ -239,7 +272,7 @@ func TestInitFromApprovedDocBatchCreateError(t *testing.T) {
 			DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved, ApplicationDetail: detail,
 		}, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 	projectBudgetDao.On("BatchCreate", mock.Anything, mock.Anything, mock.Anything).
 		Return(assert.AnError).Once()
 

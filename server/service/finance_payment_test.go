@@ -10,6 +10,7 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
+	"github.com/nusiss-capstone-project/reward-mservice/server/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
@@ -82,10 +83,10 @@ func TestCreateFinancePaymentSuccess(t *testing.T) {
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
 		Return(&model.PaymentConfig{
 			PayAddress:  "0xabc123wallet001",
-			VoucherType: "crypto",
-			Unit:        "USD",
+			VoucherType: util.VoucherTypeCrypto,
+			Unit:        util.UnitCryptoUSDT,
 		}, nil).Once()
-	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", "crypto", "USD").
+	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 1, TotalAmount: "0"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.ProjectBudget{ID: 1, TotalAmount: "0"}, nil).Once()
@@ -95,7 +96,7 @@ func TestCreateFinancePaymentSuccess(t *testing.T) {
 	result, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "100",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.PaymentID)
@@ -122,14 +123,14 @@ func TestCreateFinancePaymentExceedsDocAmount(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
-	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", "crypto", "USD").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(&model.ProjectBudget{TotalAmount: "60"}, nil).Once()
 
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "50",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -152,7 +153,7 @@ func TestCreateFinancePaymentDocNotApproved(t *testing.T) {
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "10",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -281,7 +282,7 @@ func TestCreateFinancePaymentInvalidAmount(t *testing.T) {
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "invalid",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -307,14 +308,14 @@ func TestCreateFinancePaymentBudgetNotFound(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
-	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", "crypto", "USD").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(nil, nil).Once()
 
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "10",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -339,7 +340,7 @@ func TestCreateFinancePaymentInvalidPayAddress(t *testing.T) {
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "unknown",
 		Amount:         "10",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 	var appErr *errs.AppError
@@ -359,12 +360,12 @@ func TestCreateFinancePaymentNoMatchingDetail(t *testing.T) {
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusApproved, ApplicationDetail: detail}, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
 
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "10",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 }
@@ -384,8 +385,8 @@ func TestCreateFinancePaymentCreateFailed(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(doc, nil).Once()
 	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
-		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: "crypto", Unit: "USD"}, nil).Once()
-	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", "crypto", "USD").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+	projectBudgetDao.On("GetByDocIDVoucherTypeUnit", mock.Anything, "doc-1", util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(&model.ProjectBudget{ID: 1, TotalAmount: "0"}, nil).Once()
 	projectBudgetDao.On("LockByID", mock.Anything, mock.Anything, int64(1)).
 		Return(&model.ProjectBudget{ID: 1, TotalAmount: "0"}, nil).Once()
@@ -395,7 +396,7 @@ func TestCreateFinancePaymentCreateFailed(t *testing.T) {
 	_, err := svc.CreateFinancePayment(context.Background(), "doc-1", &data.CreateFinancePaymentRequest{
 		PaymentAddress: "0xabc123wallet001",
 		Amount:         "10",
-		Unit:           "USD",
+		Unit:           util.UnitCryptoUSDT,
 	})
 	assert.Error(t, err)
 }
