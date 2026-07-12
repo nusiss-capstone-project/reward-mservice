@@ -114,6 +114,13 @@ definitions:
       project_id:
         type: integer
     type: object
+  data.CreateTemplateRequest:
+    type: object
+  data.CreateTemplateResponse:
+    properties:
+      template_id:
+        type: integer
+    type: object
   data.FinanceDocVO:
     properties:
       application_detail:
@@ -230,6 +237,13 @@ definitions:
     required:
     - name
     type: object
+  data.PublishTemplateResponse:
+    properties:
+      status:
+        type: string
+      template_id:
+        type: integer
+    type: object
   data.SubmitFinanceDocRequest:
     properties:
       remark:
@@ -245,6 +259,24 @@ definitions:
         type: string
     required:
     - status
+    type: object
+  data.TemplateVO:
+    properties:
+      config: {}
+      created_at:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      type:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      voucher_type:
+        type: string
     type: object
   data.UpdateFinanceDocContentRequest:
     properties:
@@ -290,6 +322,8 @@ definitions:
         type: string
       request_status:
         type: string
+    type: object
+  data.UpdateTemplateRequest:
     type: object
 info:
   contact: {}
@@ -979,6 +1013,157 @@ paths:
       summary: Create project
       tags:
       - Admin-Project
+  /reward-ms/v1/admin/templates:
+    get:
+      description: List reward templates for campaign ops.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List templates
+      tags:
+      - Admin-Template
+    post:
+      consumes:
+      - application/json
+      description: Create a reward template for campaign ops.
+      parameters:
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.CreateTemplateResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create template
+      tags:
+      - Admin-Template
+  /reward-ms/v1/admin/templates/{template_id}:
+    put:
+      consumes:
+      - application/json
+      description: Update template config in DRAFT status only.
+      parameters:
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TemplateVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update template
+      tags:
+      - Admin-Template
+  /reward-ms/v1/admin/templates/{template_id}/publish:
+    put:
+      description: Move template from DRAFT to PUBLISHED.
+      parameters:
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PublishTemplateResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Publish template
+      tags:
+      - Admin-Template
   /reward-ms/v1/items:
     post:
       consumes:

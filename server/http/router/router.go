@@ -63,6 +63,11 @@ func NewRouter() *gin.Engine {
 			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/approval", api.ApproveIssueRequest)
 
 			adminGroup.GET("/payment-configs", api.ListPaymentConfigs)
+
+			adminGroup.POST("/templates", api.CreateTemplate)
+			adminGroup.GET("/templates", api.ListTemplates)
+			adminGroup.PUT("/templates/:template_id", api.UpdateTemplate)
+			adminGroup.PUT("/templates/:template_id/publish", api.PublishTemplate)
 		}
 	}
 	return r
