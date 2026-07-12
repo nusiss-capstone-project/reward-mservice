@@ -49,6 +49,7 @@ func NewRouter() *gin.Engine {
 			adminGroup.POST("/finance-docs", api.CreateFinanceDoc)
 			adminGroup.GET("/finance-docs", api.ListFinanceDocs)
 			adminGroup.GET("/finance-docs/:doc_id", api.GetFinanceDocDetail)
+			adminGroup.PUT("/finance-docs/:doc_id", api.UpdateFinanceDoc)
 			adminGroup.PATCH("/finance-docs/:doc_id/submission", api.SubmitFinanceDocForApproval)
 			adminGroup.PATCH("/finance-docs/:doc_id/approval", api.ApproveFinanceDoc)
 			adminGroup.POST("/finance-docs/:doc_id/finance-payments", api.CreateFinancePayment)
@@ -62,6 +63,11 @@ func NewRouter() *gin.Engine {
 			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/approval", api.ApproveIssueRequest)
 
 			adminGroup.GET("/payment-configs", api.ListPaymentConfigs)
+
+			adminGroup.POST("/templates", api.CreateTemplate)
+			adminGroup.GET("/templates", api.ListTemplates)
+			adminGroup.PUT("/templates/:template_id", api.UpdateTemplate)
+			adminGroup.PUT("/templates/:template_id/publish", api.PublishTemplate)
 		}
 	}
 	return r

@@ -17,7 +17,7 @@ func HTTPStatusFromCode(code int) int {
 		errs.CodeFinanceDocNotApproved, errs.CodeInsufficientAvailable, errs.CodeInsufficientWithhold:
 		return http.StatusBadRequest
 	case errs.CodeProjectNotFound, errs.CodeFinanceDocNotFound, errs.CodeProjectBudgetNotFound,
-		errs.CodeFinancePaymentNotFound, errs.CodeIssueRequestNotFound:
+		errs.CodeFinancePaymentNotFound, errs.CodeIssueRequestNotFound, errs.CodeTemplateNotFound:
 		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
@@ -41,6 +41,9 @@ func WriteError(c *gin.Context, err error) {
 	}
 	if issueRequestID := c.Param("issue_request_id"); issueRequestID != "" {
 		fields = append(fields, "issue_request_id", issueRequestID)
+	}
+	if templateID := c.Param("template_id"); templateID != "" {
+		fields = append(fields, "template_id", templateID)
 	}
 	log.LogAppError(c.Request.Context(), err, "http request failed", fields...)
 

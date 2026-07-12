@@ -62,6 +62,7 @@ type FinanceDocService interface {
 	CreateFinanceDoc(ctx context.Context, req *data.CreateFinanceDocRequest) (string, error)
 	ListFinanceDocs(ctx context.Context, page, size int) (*data.PageResult, error)
 	GetFinanceDocDetail(ctx context.Context, docID string) (*data.FinanceDocVO, error)
+	UpdateFinanceDoc(ctx context.Context, docID string, req *data.UpdateFinanceDocContentRequest) (*data.FinanceDocVO, error)
 	UpdateFinanceDocStatus(ctx context.Context, docID string, req *data.UpdateFinanceDocRequest) (*data.UpdateFinanceDocResponse, error)
 	ApproveFinanceDoc(ctx context.Context, docID string, req *data.ApproveFinanceDocRequest) (*data.UpdateFinanceDocResponse, error)
 }
@@ -200,6 +201,58 @@ func (s *FinanceDocServiceImpl) GetFinanceDocDetail(ctx context.Context, docID s
 	return s.toFinanceDocVO(ctx, doc)
 }
 
+func (s *FinanceDocServiceImpl) UpdateFinanceDoc(
+	ctx context.Context,
+	docID string,
+	req *data.UpdateFinanceDocContentRequest,
+) (*data.FinanceDocVO, error) {
+	logger := log.WithContext(ctx)
+	docID = strings.TrimSpace(docID)
+	if docID == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired)
+	}
+	if req == nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgRequestRequired)
+	}
+	if len(req.ApplicationDetail) == 0 {
+		return nil, errs.New(errs.CodeInvalidRequest, "application_detail is required")
+	}
+
+	doc, err := s.financeDocDao.GetByDocID(ctx, docID)
+	if err != nil {
+		logger.Errorf("get finance doc failed: doc_id=%s err=%v", docID, err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if doc == nil {
+		return nil, errs.New(errs.CodeFinanceDocNotFound, "")
+	}
+	if err := validateFinanceDocEditable(doc.Status); err != nil {
+		return nil, err
+	}
+
+	detailItems := toApplicationDetailItems(req.ApplicationDetail)
+	if _, err := resolveBudgetItems(ctx, s.paymentConfigDao, detailItems); err != nil {
+		return nil, err
+	}
+
+	detailJSON, err := json.Marshal(detailItems)
+	if err != nil {
+		logger.Errorf("marshal application detail failed: %v", err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+
+	description := strings.TrimSpace(req.Description)
+	if err := s.financeDocDao.UpdateContent(ctx, docID, description, detailJSON); err != nil {
+		logger.Errorf("update finance doc content failed: doc_id=%s err=%v", docID, err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+
+	doc.Description = description
+	doc.ApplicationDetail = detailJSON
+	logger.Infof("finance doc updated: doc_id=%s", docID)
+	return s.toFinanceDocVO(ctx, doc)
+}
+
 func (s *FinanceDocServiceImpl) UpdateFinanceDocStatus(
 	ctx context.Context,
 	docID string,
@@ -279,6 +332,13 @@ func (s *FinanceDocServiceImpl) ApproveFinanceDoc(
 	}
 	logger.Infof("finance doc approved event published: doc_id=%s project_id=%d", doc.DocID, doc.ProjectID)
 	return resp, nil
+}
+
+func validateFinanceDocEditable(status string) error {
+	if status != model.FinanceDocStatusDraft && status != model.FinanceDocStatusRejected {
+		return errs.New(errs.CodeInvalidStatusTransition, "finance doc is not editable")
+	}
+	return nil
 }
 
 func validateFinanceDocTransition(currentStatus, targetStatus string) error {

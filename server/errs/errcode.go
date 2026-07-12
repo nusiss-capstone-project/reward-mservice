@@ -22,6 +22,7 @@ const (
 	CodeProjectBudgetNotFound  = 40403
 	CodeFinancePaymentNotFound = 40404
 	CodeIssueRequestNotFound   = 40405
+	CodeTemplateNotFound       = 40406
 
 	CodeInternalError = 50001
 )
@@ -61,6 +62,7 @@ var messages = map[int]string{
 	CodeProjectBudgetNotFound:  "project budget not found",
 	CodeFinancePaymentNotFound: "finance payment not found",
 	CodeIssueRequestNotFound:   "issue request not found",
+	CodeTemplateNotFound:       "template not found",
 
 	CodeInternalError: "internal server error",
 }

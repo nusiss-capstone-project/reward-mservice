@@ -5,12 +5,9 @@ definitions:
         type: string
       pay_address:
         type: string
-      unit:
-        type: string
     required:
     - amount
     - pay_address
-    - unit
     type: object
   data.ApproveFinanceDocRequest:
     properties:
@@ -115,6 +112,13 @@ definitions:
   data.CreateProjectResponse:
     properties:
       project_id:
+        type: integer
+    type: object
+  data.CreateTemplateRequest:
+    type: object
+  data.CreateTemplateResponse:
+    properties:
+      template_id:
         type: integer
     type: object
   data.FinanceDocVO:
@@ -233,6 +237,13 @@ definitions:
     required:
     - name
     type: object
+  data.PublishTemplateResponse:
+    properties:
+      status:
+        type: string
+      template_id:
+        type: integer
+    type: object
   data.SubmitFinanceDocRequest:
     properties:
       remark:
@@ -248,6 +259,36 @@ definitions:
         type: string
     required:
     - status
+    type: object
+  data.TemplateVO:
+    properties:
+      config: {}
+      created_at:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      type:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      voucher_type:
+        type: string
+    type: object
+  data.UpdateFinanceDocContentRequest:
+    properties:
+      application_detail:
+        items:
+          $ref: '#/definitions/data.ApplicationDetailItemVO'
+        minItems: 1
+        type: array
+      description:
+        type: string
+    required:
+    - application_detail
     type: object
   data.UpdateFinanceDocResponse:
     properties:
@@ -281,6 +322,8 @@ definitions:
         type: string
       request_status:
         type: string
+    type: object
+  data.UpdateTemplateRequest:
     type: object
 info:
   contact: {}
@@ -390,6 +433,50 @@ paths:
           schema:
             $ref: '#/definitions/data.BaseResponse'
       summary: Get finance doc detail
+      tags:
+      - Admin-FinanceDoc
+    put:
+      consumes:
+      - application/json
+      description: Update finance doc description and application_detail in DRAFT
+        or REJECTED status.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      - description: Finance doc payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateFinanceDocContentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.FinanceDocVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update finance doc
       tags:
       - Admin-FinanceDoc
   /reward-ms/v1/admin/finance-docs/{doc_id}/approval:
@@ -926,6 +1013,157 @@ paths:
       summary: Create project
       tags:
       - Admin-Project
+  /reward-ms/v1/admin/templates:
+    get:
+      description: List reward templates for campaign ops.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List templates
+      tags:
+      - Admin-Template
+    post:
+      consumes:
+      - application/json
+      description: Create a reward template for campaign ops.
+      parameters:
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.CreateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.CreateTemplateResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create template
+      tags:
+      - Admin-Template
+  /reward-ms/v1/admin/templates/{template_id}:
+    put:
+      consumes:
+      - application/json
+      description: Update template config in DRAFT status only.
+      parameters:
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.UpdateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TemplateVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Update template
+      tags:
+      - Admin-Template
+  /reward-ms/v1/admin/templates/{template_id}/publish:
+    put:
+      description: Move template from DRAFT to PUBLISHED.
+      parameters:
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PublishTemplateResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Publish template
+      tags:
+      - Admin-Template
   /reward-ms/v1/items:
     post:
       consumes:

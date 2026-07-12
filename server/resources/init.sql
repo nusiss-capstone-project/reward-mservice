@@ -153,6 +153,25 @@ CREATE TABLE IF NOT EXISTS issue_records (
     CONSTRAINT fk_issue_records_project FOREIGN KEY (project_id) REFERENCES projects (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- type: FIXED | DYNAMIC
+-- status: DRAFT | PUBLISHED
+-- config (FIXED):    {"amount": "100.00000000"}
+-- config (DYNAMIC):  {"base_metric": "net_deposit", "rate": 0.1, "cap": "100.00000000"}
+CREATE TABLE IF NOT EXISTS templates (
+    id           BIGINT       NOT NULL AUTO_INCREMENT,
+    voucher_type VARCHAR(64)  NOT NULL,
+    unit         VARCHAR(32)  NOT NULL,
+    type         VARCHAR(32)  NOT NULL,
+    config       JSON         NOT NULL,
+    status       VARCHAR(32)  NOT NULL DEFAULT 'DRAFT',
+    created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_templates_status (status),
+    KEY idx_templates_type (type),
+    KEY idx_templates_voucher_unit (voucher_type, unit)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
     ('0xabc123wallet001', 'CRYPTO', 'CRYPTO_USDT', 'ACC-CRYPTO-001'),
     ('0xdef456wallet002', 'CRYPTO', 'CRYPTO_USDC', 'ACC-CRYPTO-002'),
@@ -161,3 +180,10 @@ ON DUPLICATE KEY UPDATE
     voucher_type = VALUES(voucher_type),
     unit = VALUES(unit),
     payment_account = VALUES(payment_account);
+
+INSERT INTO templates (id, voucher_type, unit, type, config, status) VALUES
+    (1, 'CRYPTO', 'CRYPTO_USDT', 'FIXED', JSON_OBJECT('amount', '100.00000000'), 'DRAFT'),
+    (2, 'CRYPTO', 'CRYPTO_USDT', 'DYNAMIC', JSON_OBJECT('base_metric', 'net_deposit', 'rate', 0.1, 'cap', '100.00000000'), 'DRAFT')
+ON DUPLICATE KEY UPDATE
+    config = VALUES(config),
+    status = VALUES(status);
