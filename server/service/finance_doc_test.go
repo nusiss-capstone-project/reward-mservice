@@ -716,3 +716,119 @@ func TestUpdateFinanceDocNotFound(t *testing.T) {
 	assert.ErrorAs(t, err, &appErr)
 	assert.Equal(t, errs.CodeFinanceDocNotFound, appErr.Code)
 }
+
+func TestUpdateFinanceDocEmptyDocID(t *testing.T) {
+	initServiceTestEnv()
+	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), " ", &data.UpdateFinanceDocContentRequest{
+		ApplicationDetail: []data.ApplicationDetailItemVO{
+			{PayAddress: "0xabc123wallet001", Amount: "100"},
+		},
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestUpdateFinanceDocNilRequest(t *testing.T) {
+	initServiceTestEnv()
+	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", nil)
+	assert.Error(t, err)
+}
+
+func TestUpdateFinanceDocEmptyApplicationDetail(t *testing.T) {
+	initServiceTestEnv()
+	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestUpdateFinanceDocGetByDocIDFailed(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(nil, assert.AnError).Once()
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{
+		ApplicationDetail: []data.ApplicationDetailItemVO{
+			{PayAddress: "0xabc123wallet001", Amount: "100"},
+		},
+	})
+	assert.Error(t, err)
+}
+
+func TestUpdateFinanceDocInvalidPayAddress(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	paymentConfigDao := new(mockPaymentConfigDao)
+	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "invalid").Return(nil, nil).Once()
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{
+		ApplicationDetail: []data.ApplicationDetailItemVO{
+			{PayAddress: "invalid", Amount: "100"},
+		},
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeInvalidPayAddress, appErr.Code)
+}
+
+func TestUpdateFinanceDocUpdateContentFailed(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	paymentConfigDao := new(mockPaymentConfigDao)
+	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+	financeDocDao.On("UpdateContent", mock.Anything, "doc-1", "", mock.AnythingOfType("[]uint8")).
+		Return(assert.AnError).Once()
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{
+		ApplicationDetail: []data.ApplicationDetailItemVO{
+			{PayAddress: "0xabc123wallet001", Amount: "100"},
+		},
+	})
+	assert.Error(t, err)
+}
+
+func TestUpdateFinanceDocDuplicateBudgetPair(t *testing.T) {
+	initServiceTestEnv()
+	financeDocDao := new(mockFinanceDocDao)
+	paymentConfigDao := new(mockPaymentConfigDao)
+	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+
+	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
+		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xabc123wallet001").
+		Return(&model.PaymentConfig{PayAddress: "0xabc123wallet001", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+	paymentConfigDao.On("GetByPayAddress", mock.Anything, "0xdef456wallet002").
+		Return(&model.PaymentConfig{PayAddress: "0xdef456wallet002", VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT}, nil).Once()
+
+	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{
+		ApplicationDetail: []data.ApplicationDetailItemVO{
+			{PayAddress: "0xabc123wallet001", Amount: "100"},
+			{PayAddress: "0xdef456wallet002", Amount: "200"},
+		},
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errs.CodeDuplicateBudgetPair, appErr.Code)
+}
