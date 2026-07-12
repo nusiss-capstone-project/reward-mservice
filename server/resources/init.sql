@@ -168,8 +168,7 @@ CREATE TABLE IF NOT EXISTS templates (
     updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     PRIMARY KEY (id),
     KEY idx_templates_status (status),
-    KEY idx_templates_type (type),
-    KEY idx_templates_voucher_unit (voucher_type, unit)
+    KEY idx_templates_type (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES

@@ -241,6 +241,10 @@ func parseTemplateConfig(templateType string, raw json.RawMessage) ([]byte, erro
 }
 
 func parseFixTemplateConfig(raw json.RawMessage) ([]byte, error) {
+	if err := validateConfigKeys(raw, "amount"); err != nil {
+		return nil, err
+	}
+
 	var payload struct {
 		Amount json.RawMessage `json:"amount"`
 	}
@@ -263,6 +267,10 @@ func parseFixTemplateConfig(raw json.RawMessage) ([]byte, error) {
 }
 
 func parseDynamicTemplateConfig(raw json.RawMessage) ([]byte, error) {
+	if err := validateConfigKeys(raw, "base_metric", "rate", "cap"); err != nil {
+		return nil, err
+	}
+
 	var cfg data.DynamicTemplateConfigVO
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, errs.New(errs.CodeInvalidRequest, "invalid config")
@@ -287,6 +295,23 @@ func parseDynamicTemplateConfig(raw json.RawMessage) ([]byte, error) {
 	}
 
 	return json.Marshal(normalized)
+}
+
+func validateConfigKeys(raw json.RawMessage, allowed ...string) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return errs.New(errs.CodeInvalidRequest, "invalid config")
+	}
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
+	}
+	for key := range fields {
+		if _, ok := allowedSet[key]; !ok {
+			return errs.New(errs.CodeInvalidRequest, "unexpected config field: "+key)
+		}
+	}
+	return nil
 }
 
 func normalizeConfigAmount(raw json.RawMessage) (string, error) {

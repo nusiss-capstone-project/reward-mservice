@@ -570,3 +570,38 @@ func TestListTemplatesInvalidStoredType(t *testing.T) {
 	_, err := svc.ListTemplates(context.Background(), 1, 20)
 	assert.Error(t, err)
 }
+
+func TestCreateTemplateFixedRejectsDynamicFields(t *testing.T) {
+	initServiceTestEnv()
+	svc := newTemplateService(new(mockTemplateDao))
+
+	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		VoucherType: util.VoucherTypeCrypto,
+		Unit:        util.UnitCryptoUSDT,
+		Type:        "FIXED",
+		Config:      json.RawMessage(`{"amount":"100","base_metric":"net_deposit"}`),
+	})
+	assert.Error(t, err)
+}
+
+func TestCreateTemplateFixedStoresOnlyAmount(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mockTemplateDao)
+	svc := newTemplateService(templateDao)
+
+	templateDao.On("Create", mock.Anything, mock.MatchedBy(func(t *model.Template) bool {
+		var cfg model.FixTemplateConfig
+		if err := json.Unmarshal(t.Config, &cfg); err != nil {
+			return false
+		}
+		return cfg.Amount == "100.00000000" && string(t.Config) == `{"amount":"100.00000000"}`
+	})).Return(int64(1), nil).Once()
+
+	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		VoucherType: util.VoucherTypeCrypto,
+		Unit:        util.UnitCryptoUSDT,
+		Type:        "FIXED",
+		Config:      json.RawMessage(`{"amount":"100"}`),
+	})
+	assert.NoError(t, err)
+}

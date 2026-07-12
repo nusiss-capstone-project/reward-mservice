@@ -29,4 +29,3 @@ kafka:
     - reward.finance_doc.approved
     - reward.issue_request.approved
     - reward.distribution.execute
-    - reward.distribution.result
