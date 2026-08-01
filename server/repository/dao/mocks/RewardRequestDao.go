@@ -96,7 +96,7 @@ func (_m *RewardRequestDao) GetByID(ctx context.Context, id int64) (*model.Rewar
 }
 
 // UpdateStatus provides a mock function with given fields: ctx, tx, id, fromStatus, toStatus
-func (_m *RewardRequestDao) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus string) error {
+func (_m *RewardRequestDao) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, fromStatus string, toStatus string) error {
 	ret := _m.Called(ctx, tx, id, fromStatus, toStatus)
 
 	if len(ret) == 0 {

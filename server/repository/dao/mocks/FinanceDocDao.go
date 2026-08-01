@@ -128,24 +128,6 @@ func (_m *FinanceDocDao) List(ctx context.Context, page int, size int) ([]*model
 	return r0, r1, r2
 }
 
-// UpdateStatus provides a mock function with given fields: ctx, docID, status, remark
-func (_m *FinanceDocDao) UpdateStatus(ctx context.Context, docID string, status string, remark string) error {
-	ret := _m.Called(ctx, docID, status, remark)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateStatus")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = rf(ctx, docID, status, remark)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // UpdateContent provides a mock function with given fields: ctx, docID, description, applicationDetail
 func (_m *FinanceDocDao) UpdateContent(ctx context.Context, docID string, description string, applicationDetail []byte) error {
 	ret := _m.Called(ctx, docID, description, applicationDetail)
@@ -157,6 +139,24 @@ func (_m *FinanceDocDao) UpdateContent(ctx context.Context, docID string, descri
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) error); ok {
 		r0 = rf(ctx, docID, description, applicationDetail)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateStatus provides a mock function with given fields: ctx, docID, status, remark
+func (_m *FinanceDocDao) UpdateStatus(ctx context.Context, docID string, status string, remark string) error {
+	ret := _m.Called(ctx, docID, status, remark)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateStatus")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, docID, status, remark)
 	} else {
 		r0 = ret.Error(0)
 	}

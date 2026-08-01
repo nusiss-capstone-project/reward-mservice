@@ -10,75 +10,13 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/reward-mservice/server/proxy"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/nusiss-capstone-project/reward-mservice/server/util"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gorm.io/gorm"
 )
-
-type mockRewardRequestDao struct {
-	mock.Mock
-}
-
-func (m *mockRewardRequestDao) Create(ctx context.Context, tx *gorm.DB, request *model.RewardRequest) error {
-	args := m.Called(ctx, tx, request)
-	if args.Error(0) == nil && request.ID == 0 {
-		request.ID = 100
-	}
-	return args.Error(0)
-}
-
-func (m *mockRewardRequestDao) GetByClientRefID(ctx context.Context, clientRefID string) (*model.RewardRequest, error) {
-	args := m.Called(ctx, clientRefID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.RewardRequest), args.Error(1)
-}
-
-func (m *mockRewardRequestDao) GetByID(ctx context.Context, id int64) (*model.RewardRequest, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.RewardRequest), args.Error(1)
-}
-
-func (m *mockRewardRequestDao) UpdateStatus(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus string) error {
-	args := m.Called(ctx, tx, id, fromStatus, toStatus)
-	return args.Error(0)
-}
-
-type mockIssueRecordDao struct {
-	mock.Mock
-}
-
-func (m *mockIssueRecordDao) Create(ctx context.Context, tx *gorm.DB, issueRecord *model.IssueRecord) error {
-	args := m.Called(ctx, tx, issueRecord)
-	return args.Error(0)
-}
-
-func (m *mockIssueRecordDao) Save(ctx context.Context, tx *gorm.DB, issueRecord *model.IssueRecord) error {
-	args := m.Called(ctx, tx, issueRecord)
-	return args.Error(0)
-}
-
-func (m *mockIssueRecordDao) GetByID(ctx context.Context, id int64) (*model.IssueRecord, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.IssueRecord), args.Error(1)
-}
-
-func (m *mockIssueRecordDao) GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error) {
-	args := m.Called(ctx, clientRefID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.IssueRecord), args.Error(1)
-}
 
 type mockRewardExecuteProducer struct {
 	mock.Mock
@@ -121,11 +59,11 @@ func (m *mockVoucherIssuer) Issue(
 }
 
 func newIssueRecordTestService(
-	rewardRequestDao *mockRewardRequestDao,
-	issueRecordDao *mockIssueRecordDao,
-	projectDao *mockProjectDao,
-	projectBudgetDao *mockProjectBudgetDao,
-	issueBudgetDao *mockIssueBudgetDao,
+	rewardRequestDao *mocks.RewardRequestDao,
+	issueRecordDao *mocks.IssueRecordDao,
+	projectDao *mocks.ProjectDao,
+	projectBudgetDao *mocks.ProjectBudgetDao,
+	issueBudgetDao *mocks.IssueBudgetDao,
 	executeProducer *mockRewardExecuteProducer,
 	resultProducer *mockRewardResultProducer,
 	riskChecker *mockRiskChecker,
@@ -156,7 +94,7 @@ func validRewardRequest() *rewardpb.RewardDistributionRequest {
 	}
 }
 
-func mockProcessBudgetExists(projectBudgetDao *mockProjectBudgetDao) {
+func mockProcessBudgetExists(projectBudgetDao *mocks.ProjectBudgetDao) {
 	projectBudgetDao.On(
 		"GetByProjectIDVoucherTypeUnit",
 		mock.Anything, int64(20),
@@ -165,21 +103,33 @@ func mockProcessBudgetExists(projectBudgetDao *mockProjectBudgetDao) {
 	).Return(&model.ProjectBudget{ID: 50}, nil).Once()
 }
 
+// mockRewardRequestCreateAssignID mirrors the old hand-written Create mock,
+// which assigned ID=100 when Create succeeds with ID unset (e.g. after DB insert).
+func mockRewardRequestCreateAssignID(rewardRequestDao *mocks.RewardRequestDao) *mock.Call {
+	return rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).
+		Run(func(args mock.Arguments) {
+			req := args.Get(2).(*model.RewardRequest)
+			if req.ID == 0 {
+				req.ID = 100
+			}
+		})
+}
+
 func TestProcessVoucherIssueRequestSuccess(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	executeProducer := new(mockRewardExecuteProducer)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		executeProducer, new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
 
 	mockProcessBudgetExists(projectBudgetDao)
 	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
-	rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).Return(nil)
+	mockRewardRequestCreateAssignID(rewardRequestDao).Return(nil)
 	executeProducer.On("PublishExecute", mock.Anything, int64(100)).Return(nil)
 
 	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
@@ -189,11 +139,11 @@ func TestProcessVoucherIssueRequestSuccess(t *testing.T) {
 
 func TestProcessVoucherIssueRequestDuplicateClientRefID(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -210,14 +160,14 @@ func TestProcessVoucherIssueRequestDuplicateClientRefID(t *testing.T) {
 
 func TestExecuteRewardDistributionRiskFailure(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), resultProducer,
 		riskChecker, new(mockVoucherIssuer),
 	)
@@ -251,13 +201,13 @@ func TestExecuteRewardDistributionRiskFailure(t *testing.T) {
 
 func TestExecuteRewardDistributionDeferWhenBudgetInsufficient(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	riskChecker := new(mockRiskChecker)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		riskChecker, new(mockVoucherIssuer),
@@ -275,7 +225,7 @@ func TestExecuteRewardDistributionDeferWhenBudgetInsufficient(t *testing.T) {
 	projectBudget := &model.ProjectBudget{ID: 50, AvailableAmount: "10.0"}
 
 	rewardRequestDao.On("GetByID", mock.Anything, int64(100)).Return(rewardRequest, nil)
-	issueRecordDao := new(mockIssueRecordDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	svc.issueRecordDao = issueRecordDao
 	issueRecordDao.On("GetByClientRefId", mock.Anything, "ref-defer").Return(nil, nil)
 	riskChecker.On("Check", mock.Anything, mock.Anything).Return(true, "")
@@ -299,11 +249,11 @@ func TestExecuteRewardDistributionDeferWhenBudgetInsufficient(t *testing.T) {
 
 func TestExecuteRewardDistributionSuccess(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectDao := new(mockProjectDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectDao := new(mocks.ProjectDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 	voucherIssuer := new(mockVoucherIssuer)
@@ -364,11 +314,11 @@ func TestExecuteRewardDistributionSuccess(t *testing.T) {
 
 func TestExecuteRewardDistributionDownstreamCallFailRetry(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectDao := new(mockProjectDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectDao := new(mocks.ProjectDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	riskChecker := new(mockRiskChecker)
 	voucherIssuer := new(mockVoucherIssuer)
 
@@ -420,15 +370,15 @@ func TestExecuteRewardDistributionDownstreamCallFailRetry(t *testing.T) {
 
 func TestExecuteRewardDistributionRetryWithExistingPendingRecord(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	resultProducer := new(mockRewardResultProducer)
 	voucherIssuer := new(mockVoucherIssuer)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), resultProducer,
 		new(mockRiskChecker), voucherIssuer,
@@ -493,11 +443,11 @@ func TestExecuteRewardDistributionRetryWithExistingPendingRecord(t *testing.T) {
 
 func TestExecuteRewardDistributionBusinessFailureRefund(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectDao := new(mockProjectDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectDao := new(mocks.ProjectDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 	voucherIssuer := new(mockVoucherIssuer)
@@ -559,8 +509,8 @@ func TestExecuteRewardDistributionBusinessFailureRefund(t *testing.T) {
 func TestProcessVoucherIssueRequestNilRequest(t *testing.T) {
 	initServiceTestEnv()
 	svc := newIssueRecordTestService(
-		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -574,10 +524,10 @@ func TestProcessVoucherIssueRequestNilRequest(t *testing.T) {
 
 func TestProcessVoucherIssueRequestBudgetNotFound(t *testing.T) {
 	initServiceTestEnv()
-	projectBudgetDao := new(mockProjectBudgetDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -598,19 +548,19 @@ func TestProcessVoucherIssueRequestBudgetNotFound(t *testing.T) {
 
 func TestProcessVoucherIssueRequestPublishExecuteFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	executeProducer := new(mockRewardExecuteProducer)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		executeProducer, new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
 
 	mockProcessBudgetExists(projectBudgetDao)
 	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
-	rewardRequestDao.On("Create", mock.Anything, mock.Anything, mock.AnythingOfType("*model.RewardRequest")).Return(nil)
+	mockRewardRequestCreateAssignID(rewardRequestDao).Return(nil)
 	executeProducer.On("PublishExecute", mock.Anything, int64(100)).Return(errors.New("mq down"))
 
 	err := svc.ProcessVoucherIssueRequest(context.Background(), validRewardRequest())
@@ -622,12 +572,12 @@ func TestProcessVoucherIssueRequestPublishExecuteFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionEnsureCompletedAndSkip(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	resultProducer := new(mockRewardResultProducer)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), resultProducer,
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -660,8 +610,8 @@ func TestExecuteRewardDistributionEnsureCompletedAndSkip(t *testing.T) {
 func TestProcessVoucherIssueRequestValidation(t *testing.T) {
 	initServiceTestEnv()
 	svc := newIssueRecordTestService(
-		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -734,12 +684,12 @@ func TestProcessVoucherIssueRequestValidation(t *testing.T) {
 
 func TestExecuteRewardDistributionEnsureCompletedAlreadyCompleted(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	resultProducer := new(mockRewardResultProducer)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), resultProducer,
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -768,16 +718,16 @@ func TestExecuteRewardDistributionEnsureCompletedAlreadyCompleted(t *testing.T) 
 
 func TestExecuteRewardDistributionFinalizeAlreadyCompleted(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 	voucherIssuer := new(mockVoucherIssuer)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), resultProducer,
 		riskChecker, voucherIssuer,
@@ -832,8 +782,8 @@ func TestExecuteRewardDistributionFinalizeAlreadyCompleted(t *testing.T) {
 func TestExecuteRewardDistributionInvalidRewardRequestID(t *testing.T) {
 	initServiceTestEnv()
 	svc := newIssueRecordTestService(
-		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -847,10 +797,10 @@ func TestExecuteRewardDistributionInvalidRewardRequestID(t *testing.T) {
 
 func TestExecuteRewardDistributionRewardRequestNotFound(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -863,10 +813,10 @@ func TestExecuteRewardDistributionRewardRequestNotFound(t *testing.T) {
 
 func TestExecuteRewardDistributionRewardRequestNotPending(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -882,10 +832,10 @@ func TestExecuteRewardDistributionRewardRequestNotPending(t *testing.T) {
 
 func TestExecuteRewardDistributionGetRewardRequestFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -898,11 +848,11 @@ func TestExecuteRewardDistributionGetRewardRequestFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionGetIssueRecordFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -920,11 +870,11 @@ func TestExecuteRewardDistributionGetIssueRecordFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionExistingRecordNotFound(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -945,11 +895,11 @@ func TestExecuteRewardDistributionExistingRecordNotFound(t *testing.T) {
 
 func TestExecuteRewardDistributionExistingRecordIssueRequestIDMissing(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -972,12 +922,12 @@ func TestExecuteRewardDistributionExistingRecordIssueRequestIDMissing(t *testing
 
 func TestExecuteRewardDistributionExistingRecordProjectBudgetMissing(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -1008,12 +958,12 @@ func TestExecuteRewardDistributionExistingRecordProjectBudgetMissing(t *testing.
 
 func TestExecuteRewardDistributionExistingRecordIssueBudgetMissing(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
@@ -1049,10 +999,10 @@ func TestExecuteRewardDistributionExistingRecordIssueBudgetMissing(t *testing.T)
 
 func TestProcessVoucherIssueRequestGetProjectBudgetFailed(t *testing.T) {
 	initServiceTestEnv()
-	projectBudgetDao := new(mockProjectBudgetDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		new(mockRewardRequestDao), new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -1071,11 +1021,11 @@ func TestProcessVoucherIssueRequestGetProjectBudgetFailed(t *testing.T) {
 
 func TestProcessVoucherIssueRequestGetClientRefIDFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -1092,11 +1042,11 @@ func TestProcessVoucherIssueRequestGetClientRefIDFailed(t *testing.T) {
 
 func TestProcessVoucherIssueRequestCreateDuplicateClientRefIDFromDAO(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -1115,11 +1065,11 @@ func TestProcessVoucherIssueRequestCreateDuplicateClientRefIDFromDAO(t *testing.
 
 func TestProcessVoucherIssueRequestCreateFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, new(mockIssueRecordDao), new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		new(mockRiskChecker), new(mockVoucherIssuer),
 	)
@@ -1138,13 +1088,13 @@ func TestProcessVoucherIssueRequestCreateFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionLoadProjectBudgetFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	riskChecker := new(mockRiskChecker)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		projectBudgetDao, new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		riskChecker, new(mockVoucherIssuer),
 	)
@@ -1167,13 +1117,13 @@ func TestExecuteRewardDistributionLoadProjectBudgetFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionLoadIssueBudgetFailed(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	riskChecker := new(mockRiskChecker)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
 		riskChecker, new(mockVoucherIssuer),
@@ -1201,13 +1151,13 @@ func TestExecuteRewardDistributionLoadIssueBudgetFailed(t *testing.T) {
 
 func TestExecuteRewardDistributionRiskFailureEmptyReason(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
-		new(mockProjectBudgetDao), new(mockIssueBudgetDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
 		new(mockRewardExecuteProducer), resultProducer,
 		riskChecker, new(mockVoucherIssuer),
 	)
@@ -1236,16 +1186,16 @@ func TestExecuteRewardDistributionRiskFailureEmptyReason(t *testing.T) {
 
 func TestExecuteRewardDistributionBusinessFailureEmptyReason(t *testing.T) {
 	initServiceTestEnv()
-	rewardRequestDao := new(mockRewardRequestDao)
-	issueRecordDao := new(mockIssueRecordDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
-	issueBudgetDao := new(mockIssueBudgetDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	issueRecordDao := new(mocks.IssueRecordDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	issueBudgetDao := new(mocks.IssueBudgetDao)
 	resultProducer := new(mockRewardResultProducer)
 	riskChecker := new(mockRiskChecker)
 	voucherIssuer := new(mockVoucherIssuer)
 
 	svc := newIssueRecordTestService(
-		rewardRequestDao, issueRecordDao, new(mockProjectDao),
+		rewardRequestDao, issueRecordDao, new(mocks.ProjectDao),
 		projectBudgetDao, issueBudgetDao,
 		new(mockRewardExecuteProducer), resultProducer,
 		riskChecker, voucherIssuer,

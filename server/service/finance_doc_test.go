@@ -7,65 +7,13 @@ import (
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/nusiss-capstone-project/reward-mservice/server/util"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-type mockFinanceDocDao struct {
-	mock.Mock
-}
-
-func (m *mockFinanceDocDao) Create(ctx context.Context, doc *model.FinanceDoc) error {
-	args := m.Called(ctx, doc)
-	return args.Error(0)
-}
-
-func (m *mockFinanceDocDao) GetByDocID(ctx context.Context, docID string) (*model.FinanceDoc, error) {
-	args := m.Called(ctx, docID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.FinanceDoc), args.Error(1)
-}
-
-func (m *mockFinanceDocDao) ExistsByProjectID(ctx context.Context, projectID int64) (bool, error) {
-	args := m.Called(ctx, projectID)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *mockFinanceDocDao) List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error) {
-	args := m.Called(ctx, page, size)
-	return args.Get(0).([]*model.FinanceDoc), args.Get(1).(int64), args.Error(2)
-}
-
-func (m *mockFinanceDocDao) UpdateStatus(ctx context.Context, docID, status, remark string) error {
-	args := m.Called(ctx, docID, status, remark)
-	return args.Error(0)
-}
-
-func (m *mockFinanceDocDao) UpdateContent(ctx context.Context, docID, description string, applicationDetail []byte) error {
-	args := m.Called(ctx, docID, description, applicationDetail)
-	return args.Error(0)
-}
-
-type mockPaymentConfigDao struct {
-	mock.Mock
-}
-
-func (m *mockPaymentConfigDao) ListAll(ctx context.Context) ([]*model.PaymentConfig, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*model.PaymentConfig), args.Error(1)
-}
-
-func (m *mockPaymentConfigDao) GetByPayAddress(ctx context.Context, payAddress string) (*model.PaymentConfig, error) {
-	args := m.Called(ctx, payAddress)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.PaymentConfig), args.Error(1)
-}
 
 type mockFinanceDocApprovedProducer struct {
 	mock.Mock
@@ -77,9 +25,9 @@ func (m *mockFinanceDocApprovedProducer) PublishFinanceDocApproved(ctx context.C
 }
 
 func newFinanceDocService(
-	projectDao *mockProjectDao,
-	financeDocDao *mockFinanceDocDao,
-	paymentConfigDao *mockPaymentConfigDao,
+	projectDao *mocks.ProjectDao,
+	financeDocDao *mocks.FinanceDocDao,
+	paymentConfigDao *mocks.PaymentConfigDao,
 	approvedProducer *mockFinanceDocApprovedProducer,
 ) *FinanceDocServiceImpl {
 	if approvedProducer == nil {
@@ -95,9 +43,9 @@ func newFinanceDocService(
 
 func TestCreateFinanceDocSuccess(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1, Name: "P1"}, nil).Once()
@@ -118,9 +66,9 @@ func TestCreateFinanceDocSuccess(t *testing.T) {
 
 func TestCreateFinanceDocInvalidPayAddress(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
@@ -141,9 +89,9 @@ func TestCreateFinanceDocInvalidPayAddress(t *testing.T) {
 
 func TestCreateFinanceDocProjectAlreadyExists(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
@@ -163,9 +111,9 @@ func TestCreateFinanceDocProjectAlreadyExists(t *testing.T) {
 
 func TestCreateFinanceDocDuplicateBudgetPair(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
@@ -190,9 +138,9 @@ func TestCreateFinanceDocDuplicateBudgetPair(t *testing.T) {
 
 func TestUpdateFinanceDocSubmit(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	doc := &model.FinanceDoc{
@@ -213,9 +161,9 @@ func TestUpdateFinanceDocSubmit(t *testing.T) {
 
 func TestApproveFinanceDocApprovedPublishesEvent(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	approvedProducer := new(mockFinanceDocApprovedProducer)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, approvedProducer)
 
@@ -244,9 +192,9 @@ func TestApproveFinanceDocApprovedPublishesEvent(t *testing.T) {
 
 func TestApproveFinanceDocRejectedDoesNotPublish(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	approvedProducer := new(mockFinanceDocApprovedProducer)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, approvedProducer)
 
@@ -268,9 +216,9 @@ func TestApproveFinanceDocRejectedDoesNotPublish(t *testing.T) {
 
 func TestUpdateFinanceDocSubmitFromRejected(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	doc := &model.FinanceDoc{
@@ -290,9 +238,9 @@ func TestUpdateFinanceDocSubmitFromRejected(t *testing.T) {
 
 func TestUpdateFinanceDocReject(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	doc := &model.FinanceDoc{
@@ -312,9 +260,9 @@ func TestUpdateFinanceDocReject(t *testing.T) {
 
 func TestUpdateFinanceDocInvalidTransition(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	doc := &model.FinanceDoc{
@@ -334,9 +282,9 @@ func TestUpdateFinanceDocInvalidTransition(t *testing.T) {
 
 func TestGetFinanceDocDetail(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	detail, _ := json.Marshal([]data.ApplicationDetailItemVO{
@@ -360,7 +308,7 @@ func TestGetFinanceDocDetail(t *testing.T) {
 
 func TestListPaymentConfigs(t *testing.T) {
 	initServiceTestEnv()
-	paymentConfigDao := new(mockPaymentConfigDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := &PaymentConfigServiceImpl{paymentConfigDao: paymentConfigDao}
 
 	paymentConfigDao.On("ListAll", mock.Anything).Return([]*model.PaymentConfig{
@@ -375,9 +323,9 @@ func TestListPaymentConfigs(t *testing.T) {
 
 func TestListFinanceDocs(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	detail, _ := json.Marshal([]data.ApplicationDetailItemVO{
@@ -398,7 +346,7 @@ func TestListFinanceDocs(t *testing.T) {
 
 func TestListFinanceDocsInvalidPagination(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.ListFinanceDocs(context.Background(), 0, 20)
 	assert.Error(t, err)
@@ -409,8 +357,8 @@ func TestListFinanceDocsInvalidPagination(t *testing.T) {
 
 func TestGetFinanceDocDetailNotFound(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "missing").Return(nil, nil).Once()
 
@@ -423,8 +371,8 @@ func TestGetFinanceDocDetailNotFound(t *testing.T) {
 
 func TestApproveFinanceDocInvalidTransition(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
@@ -440,8 +388,8 @@ func TestApproveFinanceDocInvalidTransition(t *testing.T) {
 
 func TestCreateFinanceDocProjectNotFound(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	svc := newFinanceDocService(projectDao, new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	projectDao := new(mocks.ProjectDao)
+	svc := newFinanceDocService(projectDao, new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
 
@@ -459,7 +407,7 @@ func TestCreateFinanceDocProjectNotFound(t *testing.T) {
 
 func TestCreateFinanceDocNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.CreateFinanceDoc(context.Background(), nil)
 	assert.Error(t, err)
@@ -467,7 +415,7 @@ func TestCreateFinanceDocNilRequest(t *testing.T) {
 
 func TestGetFinanceDocDetailEmptyDocID(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.GetFinanceDocDetail(context.Background(), " ")
 	assert.Error(t, err)
@@ -475,7 +423,7 @@ func TestGetFinanceDocDetailEmptyDocID(t *testing.T) {
 
 func TestUpdateFinanceDocStatusEmptyDocID(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.UpdateFinanceDocStatus(context.Background(), " ", &data.UpdateFinanceDocRequest{
 		Status: model.FinanceDocStatusToApprove,
@@ -485,9 +433,9 @@ func TestUpdateFinanceDocStatusEmptyDocID(t *testing.T) {
 
 func TestApproveFinanceDocPublishFailure(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
+	financeDocDao := new(mocks.FinanceDocDao)
 	approvedProducer := new(mockFinanceDocApprovedProducer)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), approvedProducer)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), approvedProducer)
 
 	doc := &model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusToApprove}
 	approvedDoc := &model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}
@@ -506,7 +454,7 @@ func TestApproveFinanceDocPublishFailure(t *testing.T) {
 
 func TestCreateFinanceDocEmptyApplicationDetail(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.CreateFinanceDoc(context.Background(), &data.CreateFinanceDocRequest{ProjectID: 1})
 	assert.Error(t, err)
@@ -514,7 +462,7 @@ func TestCreateFinanceDocEmptyApplicationDetail(t *testing.T) {
 
 func TestUpdateFinanceDocStatusNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.UpdateFinanceDocStatus(context.Background(), "doc-1", nil)
 	assert.Error(t, err)
@@ -522,9 +470,9 @@ func TestUpdateFinanceDocStatusNilRequest(t *testing.T) {
 
 func TestListFinanceDocsProjectNotFound(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(projectDao, financeDocDao, new(mockPaymentConfigDao), nil)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(projectDao, financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("List", mock.Anything, 1, 20).Return([]*model.FinanceDoc{
 		{DocID: "doc-1", ProjectID: 99, Status: model.FinanceDocStatusDraft},
@@ -537,7 +485,7 @@ func TestListFinanceDocsProjectNotFound(t *testing.T) {
 
 func TestCreateFinanceDocInvalidProjectID(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.CreateFinanceDoc(context.Background(), &data.CreateFinanceDocRequest{
 		ProjectID: 0,
@@ -550,7 +498,7 @@ func TestCreateFinanceDocInvalidProjectID(t *testing.T) {
 
 func TestApproveFinanceDocNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.ApproveFinanceDoc(context.Background(), "doc-1", nil)
 	assert.Error(t, err)
@@ -558,8 +506,8 @@ func TestApproveFinanceDocNilRequest(t *testing.T) {
 
 func TestGetFinanceDocDetailLoadError(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(nil, assert.AnError).Once()
 
@@ -569,9 +517,9 @@ func TestGetFinanceDocDetailLoadError(t *testing.T) {
 
 func TestCreateFinanceDocCreateFailed(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).Return(&model.Project{ID: 1}, nil).Once()
@@ -591,8 +539,8 @@ func TestCreateFinanceDocCreateFailed(t *testing.T) {
 
 func TestUpdateFinanceDocStatusNotFound(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "missing").Return(nil, nil).Once()
 
@@ -607,8 +555,8 @@ func TestUpdateFinanceDocStatusNotFound(t *testing.T) {
 
 func TestUpdateFinanceDocStatusLoadError(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(nil, assert.AnError).Once()
 
@@ -620,9 +568,9 @@ func TestUpdateFinanceDocStatusLoadError(t *testing.T) {
 
 func TestUpdateFinanceDocSuccessFromDraft(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	detail, _ := json.Marshal([]model.ApplicationDetailItem{
@@ -655,9 +603,9 @@ func TestUpdateFinanceDocSuccessFromDraft(t *testing.T) {
 
 func TestUpdateFinanceDocSuccessFromRejected(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	projectDao := new(mocks.ProjectDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := newFinanceDocService(projectDao, financeDocDao, paymentConfigDao, nil)
 
 	doc := &model.FinanceDoc{
@@ -682,8 +630,8 @@ func TestUpdateFinanceDocSuccessFromRejected(t *testing.T) {
 
 func TestUpdateFinanceDocNotEditable(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusToApprove}, nil).Once()
@@ -701,8 +649,8 @@ func TestUpdateFinanceDocNotEditable(t *testing.T) {
 
 func TestUpdateFinanceDocNotFound(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "missing").Return(nil, nil).Once()
 
@@ -719,7 +667,7 @@ func TestUpdateFinanceDocNotFound(t *testing.T) {
 
 func TestUpdateFinanceDocEmptyDocID(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.UpdateFinanceDoc(context.Background(), " ", &data.UpdateFinanceDocContentRequest{
 		ApplicationDetail: []data.ApplicationDetailItemVO{
@@ -734,7 +682,7 @@ func TestUpdateFinanceDocEmptyDocID(t *testing.T) {
 
 func TestUpdateFinanceDocNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", nil)
 	assert.Error(t, err)
@@ -742,7 +690,7 @@ func TestUpdateFinanceDocNilRequest(t *testing.T) {
 
 func TestUpdateFinanceDocEmptyApplicationDetail(t *testing.T) {
 	initServiceTestEnv()
-	svc := newFinanceDocService(new(mockProjectDao), new(mockFinanceDocDao), new(mockPaymentConfigDao), nil)
+	svc := newFinanceDocService(new(mocks.ProjectDao), new(mocks.FinanceDocDao), new(mocks.PaymentConfigDao), nil)
 
 	_, err := svc.UpdateFinanceDoc(context.Background(), "doc-1", &data.UpdateFinanceDocContentRequest{})
 	assert.Error(t, err)
@@ -753,8 +701,8 @@ func TestUpdateFinanceDocEmptyApplicationDetail(t *testing.T) {
 
 func TestUpdateFinanceDocGetByDocIDFailed(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, new(mockPaymentConfigDao), nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, new(mocks.PaymentConfigDao), nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").Return(nil, assert.AnError).Once()
 
@@ -768,9 +716,9 @@ func TestUpdateFinanceDocGetByDocIDFailed(t *testing.T) {
 
 func TestUpdateFinanceDocInvalidPayAddress(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, paymentConfigDao, nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
@@ -789,9 +737,9 @@ func TestUpdateFinanceDocInvalidPayAddress(t *testing.T) {
 
 func TestUpdateFinanceDocUpdateContentFailed(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, paymentConfigDao, nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
@@ -810,9 +758,9 @@ func TestUpdateFinanceDocUpdateContentFailed(t *testing.T) {
 
 func TestUpdateFinanceDocDuplicateBudgetPair(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	svc := newFinanceDocService(new(mockProjectDao), financeDocDao, paymentConfigDao, nil)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	svc := newFinanceDocService(new(mocks.ProjectDao), financeDocDao, paymentConfigDao, nil)
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()

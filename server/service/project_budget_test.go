@@ -7,112 +7,19 @@ import (
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/nusiss-capstone-project/reward-mservice/server/util"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gorm.io/gorm"
 )
-
-type mockProjectBudgetDao struct {
-	mock.Mock
-}
-
-func (m *mockProjectBudgetDao) BatchCreate(ctx context.Context, tx *gorm.DB, budgets []*model.ProjectBudget) error {
-	args := m.Called(ctx, tx, budgets)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) CountByFinanceDocID(ctx context.Context, docID string) (int64, error) {
-	args := m.Called(ctx, docID)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) GetByDocIDVoucherTypeUnit(ctx context.Context, docID, voucherType, unit string) (*model.ProjectBudget, error) {
-	args := m.Called(ctx, docID, voucherType, unit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.ProjectBudget), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) GetByProjectIDVoucherTypeUnit(
-	ctx context.Context,
-	projectID int64,
-	voucherType, unit string,
-) (*model.ProjectBudget, error) {
-	args := m.Called(ctx, projectID, voucherType, unit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.ProjectBudget), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.ProjectBudget), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) ApplySubmitWithhold(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) ApplyApproveIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) ApplyRejectRelease(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error) {
-	args := m.Called(ctx, tx, budgetID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.ProjectBudget), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) UpdateTotalAndAvailableAmount(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) HasAvailableForDistribution(
-	ctx context.Context,
-	projectID int64,
-	voucherType, unit, amount string,
-) (bool, error) {
-	args := m.Called(ctx, projectID, voucherType, unit, amount)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *mockProjectBudgetDao) ApplyDistributionDeductAvailable(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) ApplyDistributionIssued(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
-
-func (m *mockProjectBudgetDao) ApplyDistributionRefund(ctx context.Context, tx *gorm.DB, budgetID int64, amount string) error {
-	args := m.Called(ctx, tx, budgetID, amount)
-	return args.Error(0)
-}
 
 func TestInitFromApprovedDocSuccess(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
@@ -153,9 +60,9 @@ func TestInitFromApprovedDocSuccess(t *testing.T) {
 
 func TestInitFromApprovedDocIdempotent(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
@@ -196,7 +103,7 @@ func TestInitFromApprovedDocEmptyDocID(t *testing.T) {
 
 func TestInitFromApprovedDocNotFound(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
+	financeDocDao := new(mocks.FinanceDocDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao: financeDocDao,
 		txBeginner:    passthroughTxBeginner{},
@@ -213,7 +120,7 @@ func TestInitFromApprovedDocNotFound(t *testing.T) {
 
 func TestInitFromApprovedDocNotApproved(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
+	financeDocDao := new(mocks.FinanceDocDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao: financeDocDao,
 		txBeginner:    passthroughTxBeginner{},
@@ -231,8 +138,8 @@ func TestInitFromApprovedDocNotApproved(t *testing.T) {
 
 func TestInitFromApprovedDocInvalidPayAddress(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
@@ -254,9 +161,9 @@ func TestInitFromApprovedDocInvalidPayAddress(t *testing.T) {
 
 func TestInitFromApprovedDocBatchCreateError(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
-	paymentConfigDao := new(mockPaymentConfigDao)
-	projectBudgetDao := new(mockProjectBudgetDao)
+	financeDocDao := new(mocks.FinanceDocDao)
+	paymentConfigDao := new(mocks.PaymentConfigDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao:    financeDocDao,
 		paymentConfigDao: paymentConfigDao,
@@ -282,7 +189,7 @@ func TestInitFromApprovedDocBatchCreateError(t *testing.T) {
 
 func TestInitFromApprovedDocLoadDocError(t *testing.T) {
 	initServiceTestEnv()
-	financeDocDao := new(mockFinanceDocDao)
+	financeDocDao := new(mocks.FinanceDocDao)
 	svc := &ProjectBudgetServiceImpl{
 		financeDocDao: financeDocDao,
 		txBeginner:    passthroughTxBeginner{},

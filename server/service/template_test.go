@@ -7,51 +7,21 @@ import (
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 	"github.com/nusiss-capstone-project/reward-mservice/server/util"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-type mockTemplateDao struct {
-	mock.Mock
-}
-
-func (m *mockTemplateDao) Create(ctx context.Context, template *model.Template) (int64, error) {
-	args := m.Called(ctx, template)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockTemplateDao) GetByID(ctx context.Context, id int64) (*model.Template, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Template), args.Error(1)
-}
-
-func (m *mockTemplateDao) List(ctx context.Context, page, size int) ([]*model.Template, int64, error) {
-	args := m.Called(ctx, page, size)
-	return args.Get(0).([]*model.Template), args.Get(1).(int64), args.Error(2)
-}
-
-func (m *mockTemplateDao) Update(ctx context.Context, id int64, config []byte) error {
-	args := m.Called(ctx, id, config)
-	return args.Error(0)
-}
-
-func (m *mockTemplateDao) UpdateStatus(ctx context.Context, id int64, fromStatus, toStatus string) error {
-	args := m.Called(ctx, id, fromStatus, toStatus)
-	return args.Error(0)
-}
-
-func newTemplateService(templateDao *mockTemplateDao) *TemplateServiceImpl {
+func newTemplateService(templateDao *mocks.TemplateDao) *TemplateServiceImpl {
 	return &TemplateServiceImpl{templateDao: templateDao}
 }
 
 func TestCreateTemplateFixedSuccess(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("Create", mock.Anything, mock.MatchedBy(func(t *model.Template) bool {
@@ -73,7 +43,7 @@ func TestCreateTemplateFixedSuccess(t *testing.T) {
 
 func TestCreateTemplateDynamicSuccess(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("Create", mock.Anything, mock.MatchedBy(func(t *model.Template) bool {
@@ -92,7 +62,7 @@ func TestCreateTemplateDynamicSuccess(t *testing.T) {
 
 func TestCreateTemplateFixedNumericAmount(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("Create", mock.Anything, mock.AnythingOfType("*model.Template")).Return(int64(3), nil).Once()
@@ -109,7 +79,7 @@ func TestCreateTemplateFixedNumericAmount(t *testing.T) {
 
 func TestCreateTemplateInvalidType(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -125,7 +95,7 @@ func TestCreateTemplateInvalidType(t *testing.T) {
 
 func TestCreateTemplateDynamicMissingBaseMetric(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -138,7 +108,7 @@ func TestCreateTemplateDynamicMissingBaseMetric(t *testing.T) {
 
 func TestUpdateTemplateSuccess(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	fixConfig, _ := json.Marshal(model.FixTemplateConfig{Amount: "10.00000000"})
@@ -166,7 +136,7 @@ func TestUpdateTemplateSuccess(t *testing.T) {
 
 func TestUpdateTemplateNotEditable(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -183,7 +153,7 @@ func TestUpdateTemplateNotEditable(t *testing.T) {
 
 func TestPublishTemplateSuccess(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -199,7 +169,7 @@ func TestPublishTemplateSuccess(t *testing.T) {
 
 func TestPublishTemplateInvalidTransition(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -214,7 +184,7 @@ func TestPublishTemplateInvalidTransition(t *testing.T) {
 
 func TestPublishTemplateNotFound(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
@@ -228,7 +198,7 @@ func TestPublishTemplateNotFound(t *testing.T) {
 
 func TestListTemplates(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	fixConfig, _ := json.Marshal(model.FixTemplateConfig{Amount: "1.00000000"})
@@ -259,7 +229,7 @@ func TestGetTemplateServiceSingleton(t *testing.T) {
 
 func TestCreateTemplateNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), nil)
 	assert.Error(t, err)
@@ -267,7 +237,7 @@ func TestCreateTemplateNilRequest(t *testing.T) {
 
 func TestCreateTemplateCreateFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("Create", mock.Anything, mock.AnythingOfType("*model.Template")).
@@ -284,7 +254,7 @@ func TestCreateTemplateCreateFailed(t *testing.T) {
 
 func TestCreateTemplateEmptyConfig(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -296,7 +266,7 @@ func TestCreateTemplateEmptyConfig(t *testing.T) {
 
 func TestCreateTemplateInvalidAmount(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -309,7 +279,7 @@ func TestCreateTemplateInvalidAmount(t *testing.T) {
 
 func TestCreateTemplateDynamicInvalidRate(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -322,7 +292,7 @@ func TestCreateTemplateDynamicInvalidRate(t *testing.T) {
 
 func TestCreateTemplateDynamicInvalidCap(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -335,7 +305,7 @@ func TestCreateTemplateDynamicInvalidCap(t *testing.T) {
 
 func TestUpdateTemplateNilRequest(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.UpdateTemplate(context.Background(), 1, nil)
 	assert.Error(t, err)
@@ -343,7 +313,7 @@ func TestUpdateTemplateNilRequest(t *testing.T) {
 
 func TestUpdateTemplateEmptyConfig(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -355,7 +325,7 @@ func TestUpdateTemplateEmptyConfig(t *testing.T) {
 
 func TestUpdateTemplateInvalidID(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.UpdateTemplate(context.Background(), 0, &data.UpdateTemplateRequest{
 		Config: json.RawMessage(`{"amount":"1"}`),
@@ -365,7 +335,7 @@ func TestUpdateTemplateInvalidID(t *testing.T) {
 
 func TestUpdateTemplateNotFound(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
@@ -381,7 +351,7 @@ func TestUpdateTemplateNotFound(t *testing.T) {
 
 func TestUpdateTemplateGetByIDFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).Return(nil, assert.AnError).Once()
@@ -394,7 +364,7 @@ func TestUpdateTemplateGetByIDFailed(t *testing.T) {
 
 func TestUpdateTemplateUpdateFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -410,7 +380,7 @@ func TestUpdateTemplateUpdateFailed(t *testing.T) {
 
 func TestUpdateTemplateDynamicSuccess(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	template := &model.Template{
@@ -434,7 +404,7 @@ func TestUpdateTemplateDynamicSuccess(t *testing.T) {
 
 func TestListTemplatesInvalidPagination(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.ListTemplates(context.Background(), 0, 20)
 	assert.Error(t, err)
@@ -445,7 +415,7 @@ func TestListTemplatesInvalidPagination(t *testing.T) {
 
 func TestListTemplatesFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template(nil), int64(0), assert.AnError).Once()
@@ -456,7 +426,7 @@ func TestListTemplatesFailed(t *testing.T) {
 
 func TestListTemplatesDynamic(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{
@@ -476,7 +446,7 @@ func TestListTemplatesDynamic(t *testing.T) {
 
 func TestPublishTemplateGetByIDFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).Return(nil, assert.AnError).Once()
@@ -487,7 +457,7 @@ func TestPublishTemplateGetByIDFailed(t *testing.T) {
 
 func TestPublishTemplateStatusTransitionConflict(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -505,7 +475,7 @@ func TestPublishTemplateStatusTransitionConflict(t *testing.T) {
 
 func TestPublishTemplateUpdateStatusFailed(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
@@ -534,7 +504,7 @@ func TestParseTemplateID(t *testing.T) {
 
 func TestCreateTemplateInvalidVoucherType(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: "BAD",
@@ -547,7 +517,7 @@ func TestCreateTemplateInvalidVoucherType(t *testing.T) {
 
 func TestCreateTemplateFixedMissingAmount(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -560,7 +530,7 @@ func TestCreateTemplateFixedMissingAmount(t *testing.T) {
 
 func TestListTemplatesInvalidStoredType(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template{
@@ -573,7 +543,7 @@ func TestListTemplatesInvalidStoredType(t *testing.T) {
 
 func TestCreateTemplateFixedRejectsDynamicFields(t *testing.T) {
 	initServiceTestEnv()
-	svc := newTemplateService(new(mockTemplateDao))
+	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
 		VoucherType: util.VoucherTypeCrypto,
@@ -586,7 +556,7 @@ func TestCreateTemplateFixedRejectsDynamicFields(t *testing.T) {
 
 func TestCreateTemplateFixedStoresOnlyAmount(t *testing.T) {
 	initServiceTestEnv()
-	templateDao := new(mockTemplateDao)
+	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
 	templateDao.On("Create", mock.Anything, mock.MatchedBy(func(t *model.Template) bool {

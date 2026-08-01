@@ -201,36 +201,6 @@ func (_m *ProjectBudgetDao) GetByDocIDVoucherTypeUnit(ctx context.Context, docID
 	return r0, r1
 }
 
-// GetByProjectIDVoucherTypeUnit provides a mock function with given fields: ctx, projectID, voucherType, unit
-func (_m *ProjectBudgetDao) GetByProjectIDVoucherTypeUnit(ctx context.Context, projectID int64, voucherType string, unit string) (*model.ProjectBudget, error) {
-	ret := _m.Called(ctx, projectID, voucherType, unit)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByProjectIDVoucherTypeUnit")
-	}
-
-	var r0 *model.ProjectBudget
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string) (*model.ProjectBudget, error)); ok {
-		return rf(ctx, projectID, voucherType, unit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string) *model.ProjectBudget); ok {
-		r0 = rf(ctx, projectID, voucherType, unit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.ProjectBudget)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, string, string) error); ok {
-		r1 = rf(ctx, projectID, voucherType, unit)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetByID provides a mock function with given fields: ctx, id
 func (_m *ProjectBudgetDao) GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error) {
 	ret := _m.Called(ctx, id)
@@ -254,6 +224,36 @@ func (_m *ProjectBudgetDao) GetByID(ctx context.Context, id int64) (*model.Proje
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetByProjectIDVoucherTypeUnit provides a mock function with given fields: ctx, projectID, voucherType, unit
+func (_m *ProjectBudgetDao) GetByProjectIDVoucherTypeUnit(ctx context.Context, projectID int64, voucherType string, unit string) (*model.ProjectBudget, error) {
+	ret := _m.Called(ctx, projectID, voucherType, unit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByProjectIDVoucherTypeUnit")
+	}
+
+	var r0 *model.ProjectBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string) (*model.ProjectBudget, error)); ok {
+		return rf(ctx, projectID, voucherType, unit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, string) *model.ProjectBudget); ok {
+		r0 = rf(ctx, projectID, voucherType, unit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.ProjectBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, string, string) error); ok {
+		r1 = rf(ctx, projectID, voucherType, unit)
 	} else {
 		r1 = ret.Error(1)
 	}
