@@ -186,6 +186,36 @@ func (_m *IssueRequestDao) UpdateStatusInTx(ctx context.Context, tx *gorm.DB, id
 	return r0
 }
 
+// ListDistinctProjectIDsByStatus provides a mock function with given fields: ctx, status
+func (_m *IssueRequestDao) ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error) {
+	ret := _m.Called(ctx, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListDistinctProjectIDsByStatus")
+	}
+
+	var r0 []int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]int64, error)); ok {
+		return rf(ctx, status)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []int64); ok {
+		r0 = rf(ctx, status)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, status)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewIssueRequestDao creates a new instance of IssueRequestDao. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewIssueRequestDao(t interface {

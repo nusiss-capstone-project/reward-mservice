@@ -47,6 +47,14 @@ func (m *mockIssueRequestDao) ListByProjectID(ctx context.Context, projectID int
 	return args.Get(0).([]*model.IssueRequest), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *mockIssueRequestDao) ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error) {
+	args := m.Called(ctx, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]int64), args.Error(1)
+}
+
 func (m *mockIssueRequestDao) UpdateFields(ctx context.Context, id int64, voucherType, unit, amount, remark string) error {
 	args := m.Called(ctx, id, voucherType, unit, amount, remark)
 	return args.Error(0)

@@ -110,6 +110,36 @@ func (_m *ProjectDao) List(ctx context.Context, page int, size int) ([]*model.Pr
 	return r0, r1, r2
 }
 
+// ListByIDs provides a mock function with given fields: ctx, ids
+func (_m *ProjectDao) ListByIDs(ctx context.Context, ids []int64) ([]*model.Project, error) {
+	ret := _m.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByIDs")
+	}
+
+	var r0 []*model.Project
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]*model.Project, error)); ok {
+		return rf(ctx, ids)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) []*model.Project); ok {
+		r0 = rf(ctx, ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*model.Project)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []int64) error); ok {
+		r1 = rf(ctx, ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewProjectDao creates a new instance of ProjectDao. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewProjectDao(t interface {

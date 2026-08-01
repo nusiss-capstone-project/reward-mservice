@@ -125,6 +125,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJ
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
+github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4 h1:uwsxL5cSLViFXvhcxHq0iHaGesQYGbWB1/U8aadfCLU=
+github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4/go.mod h1:NI9LLqL+frasX8a7FHcbgbWsddF7FzJf4SkPWzdPgUU=
 github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.1 h1:NUW+Osj0r3fq/Z9qergEsQW7RiVbeQeYfZht4tnRgjk=
 github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.1/go.mod h1:5xBkFaOK6pjww7Akc95a5wLT3YkDkU/F6zA3qw9oX/E=
 github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=

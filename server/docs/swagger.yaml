@@ -1053,6 +1053,30 @@ paths:
       summary: Create project
       tags:
       - Admin-Project
+  /reward-ms/v1/admin/projects/ongoing:
+    get:
+      description: List projects that currently have issue_request.status=ONGOING.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.ProjectVO'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List projects with ongoing issue requests
+      tags:
+      - Admin-Project
   /reward-ms/v1/admin/templates:
     get:
       description: List reward templates for campaign ops. Each item config is FixTemplateConfigVO

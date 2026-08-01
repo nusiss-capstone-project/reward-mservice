@@ -6,6 +6,7 @@ require (
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
+	github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4
 	github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/viper v1.21.0

@@ -23,6 +23,7 @@ type ProjectDao interface {
 	Create(ctx context.Context, project *model.Project) (int64, error)
 	GetByID(ctx context.Context, id int64) (*model.Project, error)
 	List(ctx context.Context, page, size int) ([]*model.Project, int64, error)
+	ListByIDs(ctx context.Context, ids []int64) ([]*model.Project, error)
 }
 
 type ProjectDaoImpl struct {
@@ -92,4 +93,28 @@ func (d *ProjectDaoImpl) List(ctx context.Context, page, size int) ([]*model.Pro
 		return nil, 0, err
 	}
 	return projects, total, nil
+}
+
+func (d *ProjectDaoImpl) ListByIDs(ctx context.Context, ids []int64) ([]*model.Project, error) {
+	if len(ids) == 0 {
+		return []*model.Project{}, nil
+	}
+
+	var projects []*model.Project
+	if err := d.db.WithContext(ctx).Where("id IN ?", ids).Find(&projects).Error; err != nil {
+		log.WithContext(ctx).Errorf("failed to list projects by ids: %v", err)
+		return nil, err
+	}
+
+	byID := make(map[int64]*model.Project, len(projects))
+	for _, project := range projects {
+		byID[project.ID] = project
+	}
+	ordered := make([]*model.Project, 0, len(ids))
+	for _, id := range ids {
+		if project, ok := byID[id]; ok {
+			ordered = append(ordered, project)
+		}
+	}
+	return ordered, nil
 }

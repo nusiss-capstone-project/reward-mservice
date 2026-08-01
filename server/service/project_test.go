@@ -35,6 +35,14 @@ func (m *mockProjectDao) List(ctx context.Context, page, size int) ([]*model.Pro
 	return args.Get(0).([]*model.Project), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *mockProjectDao) ListByIDs(ctx context.Context, ids []int64) ([]*model.Project, error) {
+	args := m.Called(ctx, ids)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Project), args.Error(1)
+}
+
 func initServiceTestEnv() {
 	config.Config = &config.Conf{
 		LogConfig: &config.LogConfig{
@@ -142,4 +150,43 @@ func TestListProjectsInvalidPagination(t *testing.T) {
 	var appErr *errs.AppError
 	assert.ErrorAs(t, err, &appErr)
 	assert.Equal(t, errs.CodeInvalidPagination, appErr.Code)
+}
+
+func TestListProjectsWithOngoingIssueRequest(t *testing.T) {
+	initServiceTestEnv()
+	projectDao := new(mockProjectDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := &ProjectServiceImpl{
+		projectDao:      projectDao,
+		issueRequestDao: issueRequestDao,
+	}
+
+	issueRequestDao.On("ListDistinctProjectIDsByStatus", mock.Anything, model.IssueRequestStatusOngoing).
+		Return([]int64{2}, nil).Once()
+	projectDao.On("ListByIDs", mock.Anything, []int64{2}).Return([]*model.Project{
+		{ID: 2, Name: "Ongoing Project", Description: "has ongoing issue request"},
+	}, nil).Once()
+
+	items, err := svc.ListProjectsWithOngoingIssueRequest(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, items, 1)
+	assert.Equal(t, "Ongoing Project", items[0].Name)
+}
+
+func TestListProjectsWithOngoingIssueRequestEmpty(t *testing.T) {
+	initServiceTestEnv()
+	projectDao := new(mockProjectDao)
+	issueRequestDao := new(mockIssueRequestDao)
+	svc := &ProjectServiceImpl{
+		projectDao:      projectDao,
+		issueRequestDao: issueRequestDao,
+	}
+
+	issueRequestDao.On("ListDistinctProjectIDsByStatus", mock.Anything, model.IssueRequestStatusOngoing).
+		Return([]int64{}, nil).Once()
+
+	items, err := svc.ListProjectsWithOngoingIssueRequest(context.Background())
+	assert.NoError(t, err)
+	assert.Empty(t, items)
+	projectDao.AssertNotCalled(t, "ListByIDs", mock.Anything, mock.Anything)
 }

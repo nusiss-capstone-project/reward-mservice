@@ -18,6 +18,7 @@ type IssueRequestDao interface {
 	GetByID(ctx context.Context, id int64) (*model.IssueRequest, error)
 	GetByIDForUpdate(ctx context.Context, tx *gorm.DB, id int64) (*model.IssueRequest, error)
 	ListByProjectID(ctx context.Context, projectID int64, page, size int) ([]*model.IssueRequest, int64, error)
+	ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error)
 	UpdateFields(ctx context.Context, id int64, voucherType, unit, amount, remark string) error
 	UpdateStatusInTx(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus, remark string) error
 	MarkOngoing(ctx context.Context, tx *gorm.DB, id int64) error
@@ -101,6 +102,20 @@ func (d *IssueRequestDaoImpl) ListByProjectID(
 		return nil, 0, err
 	}
 	return requests, total, nil
+}
+
+func (d *IssueRequestDaoImpl) ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error) {
+	var projectIDs []int64
+	err := d.db.WithContext(ctx).Model(&model.IssueRequest{}).
+		Where("request_status = ?", status).
+		Distinct("project_id").
+		Order("project_id DESC").
+		Pluck("project_id", &projectIDs).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("list distinct project ids by status failed", "status", status, "error", err)
+		return nil, err
+	}
+	return projectIDs, nil
 }
 
 func (d *IssueRequestDaoImpl) UpdateFields(

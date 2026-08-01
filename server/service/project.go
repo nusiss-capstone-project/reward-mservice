@@ -17,11 +17,13 @@ const defaultCreator = "admin"
 type ProjectService interface {
 	CreateProject(ctx context.Context, req *data.CreateProjectRequest) (int64, error)
 	ListProjects(ctx context.Context, page, size int) (*data.PageResult, error)
+	ListProjectsWithOngoingIssueRequest(ctx context.Context) ([]*data.ProjectVO, error)
 	GetProjectByID(ctx context.Context, id int64) (*data.ProjectVO, error)
 }
 
 type ProjectServiceImpl struct {
-	projectDao dao.ProjectDao
+	projectDao      dao.ProjectDao
+	issueRequestDao dao.IssueRequestDao
 }
 
 var (
@@ -31,7 +33,10 @@ var (
 
 func GetProjectService() ProjectService {
 	projectServiceOnce.Do(func() {
-		projectServiceInst = &ProjectServiceImpl{projectDao: dao.GetProjectDao()}
+		projectServiceInst = &ProjectServiceImpl{
+			projectDao:      dao.GetProjectDao(),
+			issueRequestDao: dao.GetIssueRequestDao(),
+		}
 	})
 	return projectServiceInst
 }
@@ -66,7 +71,35 @@ func (s *ProjectServiceImpl) ListProjects(ctx context.Context, page, size int) (
 		logger.Errorf("list projects failed: %v", err)
 		return nil, errs.Wrap(errs.CodeInternalError, err)
 	}
+	return toProjectPageResult(projects, total, page, size), nil
+}
 
+func (s *ProjectServiceImpl) ListProjectsWithOngoingIssueRequest(ctx context.Context) ([]*data.ProjectVO, error) {
+	logger := log.WithContext(ctx)
+
+	projectIDs, err := s.issueRequestDao.ListDistinctProjectIDsByStatus(ctx, model.IssueRequestStatusOngoing)
+	if err != nil {
+		logger.Errorf("list ongoing issue request project ids failed: %v", err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if len(projectIDs) == 0 {
+		return []*data.ProjectVO{}, nil
+	}
+
+	projects, err := s.projectDao.ListByIDs(ctx, projectIDs)
+	if err != nil {
+		logger.Errorf("list projects by ids failed: %v", err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+
+	items := make([]*data.ProjectVO, 0, len(projects))
+	for _, p := range projects {
+		items = append(items, toProjectVO(p))
+	}
+	return items, nil
+}
+
+func toProjectPageResult(projects []*model.Project, total int64, page, size int) *data.PageResult {
 	items := make([]*data.ProjectVO, 0, len(projects))
 	for _, p := range projects {
 		items = append(items, toProjectVO(p))
@@ -76,7 +109,7 @@ func (s *ProjectServiceImpl) ListProjects(ctx context.Context, page, size int) (
 		Page:  page,
 		Size:  size,
 		Items: items,
-	}, nil
+	}
 }
 
 func (s *ProjectServiceImpl) GetProjectByID(ctx context.Context, id int64) (*data.ProjectVO, error) {

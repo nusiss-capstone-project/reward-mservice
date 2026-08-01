@@ -1118,6 +1118,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/reward-ms/v1/admin/projects/ongoing": {
+            "get": {
+                "description": "List projects that currently have issue_request.status=ONGOING.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-Project"
+                ],
+                "summary": "List projects with ongoing issue requests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.ProjectVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/reward-ms/v1/admin/templates": {
             "get": {
                 "description": "List reward templates for campaign ops. Each item config is FixTemplateConfigVO or DynamicTemplateConfigVO based on type.",
