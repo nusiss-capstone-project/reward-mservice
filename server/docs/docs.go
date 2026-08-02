@@ -1161,7 +1161,7 @@ const docTemplate = `{
         },
         "/reward-ms/v1/admin/templates": {
             "get": {
-                "description": "List reward templates for campaign ops. Each item config is FixTemplateConfigVO or DynamicTemplateConfigVO based on type.",
+                "description": "List reward templates for campaign ops. Each item config is FixTemplateConfigVO or DynamicTemplateConfigVO based on type. Optional status filter: DRAFT or PUBLISHED.",
                 "produces": [
                     "application/json"
                 ],
@@ -1182,6 +1182,16 @@ const docTemplate = `{
                         "default": 20,
                         "description": "Page size",
                         "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "PUBLISHED"
+                        ],
+                        "type": "string",
+                        "description": "Template status filter",
+                        "name": "status",
                         "in": "query"
                     }
                 ],

@@ -19,7 +19,7 @@ import (
 type TemplateService interface {
 	CreateTemplate(ctx context.Context, req *data.CreateTemplateRequest) (int64, error)
 	UpdateTemplate(ctx context.Context, templateID int64, req *data.UpdateTemplateRequest) (*data.TemplateVO, error)
-	ListTemplates(ctx context.Context, page, size int) (*data.PageResult, error)
+	ListTemplates(ctx context.Context, query data.TemplateListQuery) (*data.PageResult, error)
 	PublishTemplate(ctx context.Context, templateID int64) (*data.PublishTemplateResponse, error)
 }
 
@@ -103,17 +103,19 @@ func (s *TemplateServiceImpl) UpdateTemplate(
 	return toTemplateVO(template)
 }
 
-func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, page, size int) (*data.PageResult, error) {
+func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, query data.TemplateListQuery) (*data.PageResult, error) {
 	logger := log.WithContext(ctx)
-	if page <= 0 || size <= 0 {
-		return nil, templateErr(ctx, errs.New(errs.CodeInvalidPagination, ""),
-			errs.LogInputError, "page", page, "size", size)
+	page, size := query.Normalize()
+
+	normalizedStatus, err := util.ValidateTemplateStatus(query.Status)
+	if err != nil {
+		return nil, templateErr(ctx, err, errs.LogInputError, "status", query.Status)
 	}
 
-	templates, total, err := s.templateDao.List(ctx, page, size)
+	templates, total, err := s.templateDao.List(ctx, page, size, normalizedStatus)
 	if err != nil {
 		return nil, templateErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			errs.LogOperationFailed, "page", page, "size", size)
+			errs.LogOperationFailed, "page", page, "size", size, "status", normalizedStatus)
 	}
 
 	items := make([]*data.TemplateVO, 0, len(templates))
@@ -125,7 +127,7 @@ func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, page, size int)
 		}
 		items = append(items, vo)
 	}
-	logger.Infof("templates listed: page=%d size=%d total=%d", page, size, total)
+	logger.Infof("templates listed: page=%d size=%d total=%d status=%s", page, size, total, normalizedStatus)
 	return &data.PageResult{
 		Total: total,
 		Page:  page,

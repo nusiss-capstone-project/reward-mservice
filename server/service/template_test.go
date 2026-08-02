@@ -202,7 +202,7 @@ func TestListTemplates(t *testing.T) {
 	svc := newTemplateService(templateDao)
 
 	fixConfig, _ := json.Marshal(model.FixTemplateConfig{Amount: "1.00000000"})
-	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template{
+	templateDao.On("List", mock.Anything, 1, 20, "").Return([]*model.Template{
 		{
 			ID:          1,
 			VoucherType: util.VoucherTypeCrypto,
@@ -213,7 +213,7 @@ func TestListTemplates(t *testing.T) {
 		},
 	}, int64(1), nil).Once()
 
-	result, err := svc.ListTemplates(context.Background(), 1, 20)
+	result, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}})
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), result.Total)
 	items := result.Items.([]*data.TemplateVO)
@@ -402,15 +402,51 @@ func TestUpdateTemplateDynamicSuccess(t *testing.T) {
 	assert.Equal(t, 0.2, dynamicVO.Rate)
 }
 
-func TestListTemplatesInvalidPagination(t *testing.T) {
+func TestListTemplatesDefaultPagination(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newTemplateService(templateDao)
+
+	templateDao.On("List", mock.Anything, data.DefaultPage, data.DefaultSize, "").
+		Return([]*model.Template{}, int64(0), nil).Once()
+
+	result, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{})
+	assert.NoError(t, err)
+	assert.Equal(t, data.DefaultPage, result.Page)
+	assert.Equal(t, data.DefaultSize, result.Size)
+}
+
+func TestListTemplatesByStatus(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newTemplateService(templateDao)
+
+	fixConfig, _ := json.Marshal(model.FixTemplateConfig{Amount: "1.00000000"})
+	templateDao.On("List", mock.Anything, 1, 20, model.TemplateStatusPublished).Return([]*model.Template{
+		{
+			ID:     3,
+			Type:   model.TemplateTypeFixed,
+			Config: fixConfig,
+			Status: model.TemplateStatusPublished,
+		},
+	}, int64(1), nil).Once()
+
+	result, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}, Status: "published"})
+	assert.NoError(t, err)
+	items := result.Items.([]*data.TemplateVO)
+	assert.Len(t, items, 1)
+	assert.Equal(t, model.TemplateStatusPublished, items[0].Status)
+}
+
+func TestListTemplatesInvalidStatus(t *testing.T) {
 	initServiceTestEnv()
 	svc := newTemplateService(new(mocks.TemplateDao))
 
-	_, err := svc.ListTemplates(context.Background(), 0, 20)
+	_, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}, Status: "UNKNOWN"})
 	assert.Error(t, err)
 	var appErr *errs.AppError
 	assert.ErrorAs(t, err, &appErr)
-	assert.Equal(t, errs.CodeInvalidPagination, appErr.Code)
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
 }
 
 func TestListTemplatesFailed(t *testing.T) {
@@ -418,9 +454,9 @@ func TestListTemplatesFailed(t *testing.T) {
 	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
-	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template(nil), int64(0), assert.AnError).Once()
+	templateDao.On("List", mock.Anything, 1, 20, "").Return([]*model.Template(nil), int64(0), assert.AnError).Once()
 
-	_, err := svc.ListTemplates(context.Background(), 1, 20)
+	_, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}})
 	assert.Error(t, err)
 }
 
@@ -432,11 +468,11 @@ func TestListTemplatesDynamic(t *testing.T) {
 	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{
 		BaseMetric: "net_deposit", Rate: 0.1, Cap: "100.00000000",
 	})
-	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template{
+	templateDao.On("List", mock.Anything, 1, 20, "").Return([]*model.Template{
 		{ID: 2, Type: model.TemplateTypeDynamic, Config: dynamicConfig, Status: model.TemplateStatusDraft},
 	}, int64(1), nil).Once()
 
-	result, err := svc.ListTemplates(context.Background(), 1, 20)
+	result, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}})
 	assert.NoError(t, err)
 	items := result.Items.([]*data.TemplateVO)
 	dynamicVO, ok := items[0].Config.(data.DynamicTemplateConfigVO)
@@ -533,11 +569,11 @@ func TestListTemplatesInvalidStoredType(t *testing.T) {
 	templateDao := new(mocks.TemplateDao)
 	svc := newTemplateService(templateDao)
 
-	templateDao.On("List", mock.Anything, 1, 20).Return([]*model.Template{
+	templateDao.On("List", mock.Anything, 1, 20, "").Return([]*model.Template{
 		{ID: 3, Type: "UNKNOWN", Config: []byte(`{}`), Status: model.TemplateStatusDraft},
 	}, int64(1), nil).Once()
 
-	_, err := svc.ListTemplates(context.Background(), 1, 20)
+	_, err := svc.ListTemplates(context.Background(), data.TemplateListQuery{PageQuery: data.PageQuery{Page: 1, Size: 20}})
 	assert.Error(t, err)
 }
 

@@ -18,3 +18,17 @@ func ValidateTemplateType(raw string) (string, error) {
 		return "", errs.New(errs.CodeInvalidRequest, "invalid template type")
 	}
 }
+
+// ValidateTemplateStatus normalizes template status. Empty input means no filter.
+func ValidateTemplateStatus(raw string) (string, error) {
+	status := strings.ToUpper(strings.TrimSpace(raw))
+	if status == "" {
+		return "", nil
+	}
+	switch status {
+	case model.TemplateStatusDraft, model.TemplateStatusPublished:
+		return status, nil
+	default:
+		return "", errs.New(errs.CodeInvalidRequest, "invalid template status")
+	}
+}

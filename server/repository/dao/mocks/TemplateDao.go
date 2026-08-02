@@ -73,9 +73,9 @@ func (_m *TemplateDao) GetByID(ctx context.Context, id int64) (*model.Template, 
 	return r0, r1
 }
 
-// List provides a mock function with given fields: ctx, page, size
-func (_m *TemplateDao) List(ctx context.Context, page int, size int) ([]*model.Template, int64, error) {
-	ret := _m.Called(ctx, page, size)
+// List provides a mock function with given fields: ctx, page, size, status
+func (_m *TemplateDao) List(ctx context.Context, page int, size int, status string) ([]*model.Template, int64, error) {
+	ret := _m.Called(ctx, page, size, status)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
@@ -84,25 +84,25 @@ func (_m *TemplateDao) List(ctx context.Context, page int, size int) ([]*model.T
 	var r0 []*model.Template
 	var r1 int64
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]*model.Template, int64, error)); ok {
-		return rf(ctx, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, string) ([]*model.Template, int64, error)); ok {
+		return rf(ctx, page, size, status)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []*model.Template); ok {
-		r0 = rf(ctx, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, string) []*model.Template); ok {
+		r0 = rf(ctx, page, size, status)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*model.Template)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) int64); ok {
-		r1 = rf(ctx, page, size)
+	if rf, ok := ret.Get(1).(func(context.Context, int, int, string) int64); ok {
+		r1 = rf(ctx, page, size, status)
 	} else {
 		r1 = ret.Get(1).(int64)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, int, int) error); ok {
-		r2 = rf(ctx, page, size)
+	if rf, ok := ret.Get(2).(func(context.Context, int, int, string) error); ok {
+		r2 = rf(ctx, page, size, status)
 	} else {
 		r2 = ret.Error(2)
 	}

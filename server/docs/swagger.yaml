@@ -1079,8 +1079,9 @@ paths:
       - Admin-Project
   /reward-ms/v1/admin/templates:
     get:
-      description: List reward templates for campaign ops. Each item config is FixTemplateConfigVO
-        or DynamicTemplateConfigVO based on type.
+      description: 'List reward templates for campaign ops. Each item config is FixTemplateConfigVO
+        or DynamicTemplateConfigVO based on type. Optional status filter: DRAFT or
+        PUBLISHED.'
       parameters:
       - default: 1
         description: Page number
@@ -1092,6 +1093,13 @@ paths:
         in: query
         name: size
         type: integer
+      - description: Template status filter
+        enum:
+        - DRAFT
+        - PUBLISHED
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:

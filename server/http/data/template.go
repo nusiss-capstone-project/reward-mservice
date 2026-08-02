@@ -42,3 +42,8 @@ type TemplateVO struct {
 	CreatedAt   string      `json:"created_at,omitempty" example:"2026-07-12 10:00:00"`
 	UpdatedAt   string      `json:"updated_at,omitempty" example:"2026-07-12 10:00:00"`
 }
+
+type TemplateListQuery struct {
+	PageQuery
+	Status string `form:"status" enums:"DRAFT,PUBLISHED" example:"DRAFT"`
+}

@@ -14,7 +14,7 @@ import (
 type TemplateDao interface {
 	Create(ctx context.Context, template *model.Template) (int64, error)
 	GetByID(ctx context.Context, id int64) (*model.Template, error)
-	List(ctx context.Context, page, size int) ([]*model.Template, int64, error)
+	List(ctx context.Context, page, size int, status string) ([]*model.Template, int64, error)
 	Update(ctx context.Context, id int64, config []byte) error
 	UpdateStatus(ctx context.Context, id int64, fromStatus, toStatus string) error
 }
@@ -56,9 +56,12 @@ func (d *TemplateDaoImpl) GetByID(ctx context.Context, id int64) (*model.Templat
 	return &template, nil
 }
 
-func (d *TemplateDaoImpl) List(ctx context.Context, page, size int) ([]*model.Template, int64, error) {
+func (d *TemplateDaoImpl) List(ctx context.Context, page, size int, status string) ([]*model.Template, int64, error) {
 	var total int64
 	query := d.db.WithContext(ctx).Model(&model.Template{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
 	if err := query.Count(&total).Error; err != nil {
 		log.WithContext(ctx).Errorf("failed to count templates: %v", err)
 		return nil, 0, err
