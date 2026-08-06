@@ -109,3 +109,5 @@ require (
 )
 
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
+
+replace github.com/nusiss-capstone-project/reward-mservice/common => ../common

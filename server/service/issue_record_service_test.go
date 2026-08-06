@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -156,6 +157,152 @@ func TestProcessVoucherIssueRequestDuplicateClientRefID(t *testing.T) {
 	var appErr *errs.AppError
 	assert.True(t, errors.As(err, &appErr))
 	assert.Equal(t, errs.CodeDuplicateClientRefID, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestWithFixedTemplate(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	templateDao := new(mocks.TemplateDao)
+	executeProducer := new(mockRewardExecuteProducer)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
+		executeProducer, new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+
+	fixConfig, _ := json.Marshal(model.FixTemplateConfig{Amount: "2.5"})
+	templateDao.On("GetByID", mock.Anything, int64(7)).Return(&model.Template{
+		ID:          7,
+		VoucherType: util.VoucherTypeCrypto,
+		Unit:        util.UnitCryptoUSDT,
+		Type:        model.TemplateTypeFixed,
+		Config:      fixConfig,
+		Status:      model.TemplateStatusPublished,
+	}, nil).Once()
+	mockProcessBudgetExists(projectBudgetDao)
+	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
+	mockRewardRequestCreateAssignID(rewardRequestDao).Run(func(args mock.Arguments) {
+		req := args.Get(2).(*model.RewardRequest)
+		assert.Equal(t, "2.50000000", req.Amount)
+		assert.Equal(t, util.VoucherTypeCrypto, req.VoucherType)
+		assert.Equal(t, util.UnitCryptoUSDT, req.Unit)
+		if req.ID == 0 {
+			req.ID = 100
+		}
+	}).Return(nil)
+	executeProducer.On("PublishExecute", mock.Anything, int64(100)).Return(nil)
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1",
+		UserId:      10,
+		ProjectId:   20,
+		TemplateId:  7,
+	})
+	assert.NoError(t, err)
+}
+
+func TestProcessVoucherIssueRequestWithDynamicTemplate(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	projectBudgetDao := new(mocks.ProjectBudgetDao)
+	templateDao := new(mocks.TemplateDao)
+	executeProducer := new(mockRewardExecuteProducer)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		projectBudgetDao, new(mocks.IssueBudgetDao),
+		executeProducer, new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+
+	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{
+		BaseMetric: "net_deposit", Rate: 0.1, Cap: "5",
+	})
+	templateDao.On("GetByID", mock.Anything, int64(8)).Return(&model.Template{
+		ID:          8,
+		VoucherType: util.VoucherTypeCrypto,
+		Unit:        util.UnitCryptoUSDT,
+		Type:        model.TemplateTypeDynamic,
+		Config:      dynamicConfig,
+		Status:      model.TemplateStatusPublished,
+	}, nil).Once()
+	mockProcessBudgetExists(projectBudgetDao)
+	rewardRequestDao.On("GetByClientRefID", mock.Anything, "ref-1").Return(nil, nil)
+	mockRewardRequestCreateAssignID(rewardRequestDao).Run(func(args mock.Arguments) {
+		req := args.Get(2).(*model.RewardRequest)
+		assert.Equal(t, "5.00000000", req.Amount) // 100*0.1=10 capped to 5
+		if req.ID == 0 {
+			req.ID = 100
+		}
+	}).Return(nil)
+	executeProducer.On("PublishExecute", mock.Anything, int64(100)).Return(nil)
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1",
+		UserId:      10,
+		ProjectId:   20,
+		TemplateId:  8,
+		Metrics:     map[string]string{"net_deposit": "100"},
+	})
+	assert.NoError(t, err)
+}
+
+func TestProcessVoucherIssueRequestTemplateAmountZero(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+
+	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{
+		BaseMetric: "net_deposit", Rate: 0.1,
+	})
+	templateDao.On("GetByID", mock.Anything, int64(9)).Return(&model.Template{
+		ID:          9,
+		VoucherType: util.VoucherTypeCrypto,
+		Unit:        util.UnitCryptoUSDT,
+		Type:        model.TemplateTypeDynamic,
+		Config:      dynamicConfig,
+		Status:      model.TemplateStatusPublished,
+	}, nil).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1",
+		UserId:      10,
+		ProjectId:   20,
+		TemplateId:  9,
+		Metrics:     map[string]string{"net_deposit": "0"},
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+	rewardRequestDao.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestProcessVoucherIssueRequestAmountZero(t *testing.T) {
+	initServiceTestEnv()
+	rewardRequestDao := new(mocks.RewardRequestDao)
+	svc := newIssueRecordTestService(
+		rewardRequestDao, new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	req := validRewardRequest()
+	req.Amount = "0"
+	err := svc.ProcessVoucherIssueRequest(context.Background(), req)
+	assert.Error(t, err)
+	rewardRequestDao.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestExecuteRewardDistributionRiskFailure(t *testing.T) {

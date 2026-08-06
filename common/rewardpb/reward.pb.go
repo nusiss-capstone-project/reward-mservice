@@ -395,6 +395,8 @@ type RewardDistributionRequest struct {
 	VoucherType   string                 `protobuf:"bytes,4,opt,name=voucherType,proto3" json:"voucherType,omitempty"`
 	Unit          string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
 	Amount        string                 `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	TemplateId    uint64                 `protobuf:"varint,7,opt,name=templateId,proto3" json:"templateId,omitempty"`
+	Metrics       map[string]string      `protobuf:"bytes,8,rep,name=metrics,proto3" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	BaseInfo      *BaseRequestInfo       `protobuf:"bytes,255,opt,name=baseInfo,proto3" json:"baseInfo,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -470,6 +472,20 @@ func (x *RewardDistributionRequest) GetAmount() string {
 		return x.Amount
 	}
 	return ""
+}
+
+func (x *RewardDistributionRequest) GetTemplateId() uint64 {
+	if x != nil {
+		return x.TemplateId
+	}
+	return 0
+}
+
+func (x *RewardDistributionRequest) GetMetrics() map[string]string {
+	if x != nil {
+		return x.Metrics
+	}
+	return nil
 }
 
 func (x *RewardDistributionRequest) GetBaseInfo() *BaseRequestInfo {
@@ -553,15 +569,22 @@ const file_proto_reward_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"5\n" +
 	"\x0fBaseRequestInfo\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x02 \x01(\tR\x02to\"\xf9\x01\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\"\xa1\x03\n" +
 	"\x19RewardDistributionRequest\x12 \n" +
 	"\vclientRefId\x18\x01 \x01(\tR\vclientRefId\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x04R\x06userId\x12\x1c\n" +
 	"\tprojectId\x18\x03 \x01(\x04R\tprojectId\x12 \n" +
 	"\vvoucherType\x18\x04 \x01(\tR\vvoucherType\x12\x12\n" +
 	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x16\n" +
-	"\x06amount\x18\x06 \x01(\tR\x06amount\x126\n" +
-	"\bbaseInfo\x18\xff\x01 \x01(\v2\x19.rewardpb.BaseRequestInfoR\bbaseInfo\"\x95\x01\n" +
+	"\x06amount\x18\x06 \x01(\tR\x06amount\x12\x1e\n" +
+	"\n" +
+	"templateId\x18\a \x01(\x04R\n" +
+	"templateId\x12J\n" +
+	"\ametrics\x18\b \x03(\v20.rewardpb.RewardDistributionRequest.MetricsEntryR\ametrics\x126\n" +
+	"\bbaseInfo\x18\xff\x01 \x01(\v2\x19.rewardpb.BaseRequestInfoR\bbaseInfo\x1a:\n" +
+	"\fMetricsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x95\x01\n" +
 	"\x1aRewardDistributionResponse\x12 \n" +
 	"\vclientRefId\x18\x01 \x01(\tR\vclientRefId\x12\x1c\n" +
 	"\tvoucherId\x18\x02 \x01(\tR\tvoucherId\x127\n" +
@@ -608,7 +631,7 @@ func file_proto_reward_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_reward_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_reward_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_proto_reward_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_reward_proto_goTypes = []any{
 	(ErrorCode)(0),                     // 0: rewardpb.ErrorCode
 	(VoucherType)(0),                   // 1: rewardpb.VoucherType
@@ -619,20 +642,22 @@ var file_proto_reward_proto_goTypes = []any{
 	(*BaseRequestInfo)(nil),            // 6: rewardpb.BaseRequestInfo
 	(*RewardDistributionRequest)(nil),  // 7: rewardpb.RewardDistributionRequest
 	(*RewardDistributionResponse)(nil), // 8: rewardpb.RewardDistributionResponse
+	nil,                                // 9: rewardpb.RewardDistributionRequest.MetricsEntry
 }
 var file_proto_reward_proto_depIdxs = []int32{
 	0, // 0: rewardpb.BaseResponseInfo.code:type_name -> rewardpb.ErrorCode
-	6, // 1: rewardpb.RewardDistributionRequest.baseInfo:type_name -> rewardpb.BaseRequestInfo
-	5, // 2: rewardpb.RewardDistributionResponse.baseInfo:type_name -> rewardpb.BaseResponseInfo
-	3, // 3: rewardpb.RewardService.SayHello:input_type -> rewardpb.HelloRequest
-	7, // 4: rewardpb.RewardService.Reward:input_type -> rewardpb.RewardDistributionRequest
-	4, // 5: rewardpb.RewardService.SayHello:output_type -> rewardpb.HelloResponse
-	8, // 6: rewardpb.RewardService.Reward:output_type -> rewardpb.RewardDistributionResponse
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	9, // 1: rewardpb.RewardDistributionRequest.metrics:type_name -> rewardpb.RewardDistributionRequest.MetricsEntry
+	6, // 2: rewardpb.RewardDistributionRequest.baseInfo:type_name -> rewardpb.BaseRequestInfo
+	5, // 3: rewardpb.RewardDistributionResponse.baseInfo:type_name -> rewardpb.BaseResponseInfo
+	3, // 4: rewardpb.RewardService.SayHello:input_type -> rewardpb.HelloRequest
+	7, // 5: rewardpb.RewardService.Reward:input_type -> rewardpb.RewardDistributionRequest
+	4, // 6: rewardpb.RewardService.SayHello:output_type -> rewardpb.HelloResponse
+	8, // 7: rewardpb.RewardService.Reward:output_type -> rewardpb.RewardDistributionResponse
+	6, // [6:8] is the sub-list for method output_type
+	4, // [4:6] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_proto_reward_proto_init() }
@@ -646,7 +671,7 @@ func file_proto_reward_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_reward_proto_rawDesc), len(file_proto_reward_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

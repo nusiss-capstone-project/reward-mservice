@@ -52,7 +52,7 @@ func mapRewardError(err error) (rewardpb.ErrorCode, string) {
 			return rewardpb.ErrorCode_INVALID_PARAM, appErr.Error()
 		case errs.CodeInvalidRequest:
 			return rewardpb.ErrorCode_INVALID_PARAM, appErr.Error()
-		case errs.CodeProjectNotFound, errs.CodeProjectBudgetNotFound:
+		case errs.CodeProjectNotFound, errs.CodeProjectBudgetNotFound, errs.CodeTemplateNotFound:
 			return rewardpb.ErrorCode_DATA_NOT_EXIST, appErr.Error()
 		default:
 			return rewardpb.ErrorCode_UNKNOWN_ERROR, appErr.Error()

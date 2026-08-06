@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"math/big"
 	"strings"
 	"sync"
 
@@ -40,6 +42,7 @@ type IssueRecordServiceImpl struct {
 	projectDao       dao.ProjectDao
 	projectBudgetDao dao.ProjectBudgetDao
 	issueBudgetDao   dao.IssueBudgetDao
+	templateDao      dao.TemplateDao
 	executeProducer  producer.RewardDistributionExecuteProducer
 	resultProducer   producer.RewardDistributionResultProducer
 	riskChecker      proxy.RiskChecker
@@ -60,6 +63,7 @@ func GetIssueRecordService() IssueRecordService {
 			projectDao:       dao.GetProjectDao(),
 			projectBudgetDao: dao.GetProjectBudgetDao(),
 			issueBudgetDao:   dao.GetIssueBudgetDao(),
+			templateDao:      dao.GetTemplateDao(),
 			executeProducer:  producer.GetRewardDistributionExecuteProducer(),
 			resultProducer:   producer.GetRewardDistributionResultProducer(),
 			riskChecker:      proxy.GetRiskChecker(),
@@ -82,6 +86,10 @@ func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
 	input, err := parseRewardDistributionRequest(request)
 	if err != nil {
 		return issueRecordErr(ctx, err, errs.LogInputError, "client_ref_id", request.GetClientRefId())
+	}
+	if err := s.resolveRewardAmount(ctx, input, request); err != nil {
+		return issueRecordErr(ctx, err, errs.LogInputError,
+			"client_ref_id", input.clientRefID, "template_id", request.GetTemplateId())
 	}
 
 	budget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(ctx, input.projectID, input.voucherType, input.unit)
@@ -569,28 +577,119 @@ func parseRewardDistributionRequest(request *rewardpb.RewardDistributionRequest)
 		return nil, errs.New(errs.CodeInvalidRequest, "project_id is required")
 	}
 
-	voucherType, err := util.ValidateVoucherType(request.GetVoucherType())
-	if err != nil {
-		return nil, err
-	}
-	unit, err := util.ValidateUnit(request.GetUnit())
-	if err != nil {
-		return nil, err
-	}
-
-	amount, err := util.ParseAmount(request.GetAmount())
-	if err != nil || amount.Sign() <= 0 {
-		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
-	}
-
 	return &rewardDistributionInput{
 		clientRefID: clientRefID,
 		userID:      int64(request.GetUserId()),
 		projectID:   int64(request.GetProjectId()),
-		voucherType: voucherType,
-		unit:        unit,
-		amount:      util.FormatAmount(amount),
 	}, nil
+}
+
+func (s *IssueRecordServiceImpl) resolveRewardAmount(
+	ctx context.Context,
+	input *rewardDistributionInput,
+	request *rewardpb.RewardDistributionRequest,
+) error {
+	if request.GetTemplateId() > 0 {
+		return s.resolveRewardAmountFromTemplate(ctx, input, int64(request.GetTemplateId()), request.GetMetrics())
+	}
+	return resolveRewardAmountFromRequest(input, request)
+}
+
+func resolveRewardAmountFromRequest(
+	input *rewardDistributionInput,
+	request *rewardpb.RewardDistributionRequest,
+) error {
+	voucherType, err := util.ValidateVoucherType(request.GetVoucherType())
+	if err != nil {
+		return err
+	}
+	unit, err := util.ValidateUnit(request.GetUnit())
+	if err != nil {
+		return err
+	}
+	amount, err := util.ParseAmount(request.GetAmount())
+	if err != nil || amount.Sign() <= 0 {
+		return errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+	input.voucherType = voucherType
+	input.unit = unit
+	input.amount = util.FormatAmount(amount)
+	return nil
+}
+
+func (s *IssueRecordServiceImpl) resolveRewardAmountFromTemplate(
+	ctx context.Context,
+	input *rewardDistributionInput,
+	templateID int64,
+	metrics map[string]string,
+) error {
+	template, err := s.templateDao.GetByID(ctx, templateID)
+	if err != nil {
+		return errs.Wrap(errs.CodeInternalError, err)
+	}
+	if template == nil {
+		return errs.New(errs.CodeTemplateNotFound, "")
+	}
+	if template.Status != model.TemplateStatusPublished {
+		return errs.New(errs.CodeInvalidRequest, "template is not published")
+	}
+
+	amount, err := calculateTemplateRewardAmount(template, metrics)
+	if err != nil {
+		return err
+	}
+	if amount.Sign() <= 0 {
+		return errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+
+	input.voucherType = template.VoucherType
+	input.unit = template.Unit
+	input.amount = util.FormatAmount(amount)
+	return nil
+}
+
+func calculateTemplateRewardAmount(template *model.Template, metrics map[string]string) (*big.Rat, error) {
+	switch template.Type {
+	case model.TemplateTypeFixed:
+		var cfg model.FixTemplateConfig
+		if err := json.Unmarshal(template.Config, &cfg); err != nil {
+			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
+		}
+		amount, err := util.ParseAmount(cfg.Amount)
+		if err != nil {
+			return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+		}
+		return amount, nil
+	case model.TemplateTypeDynamic:
+		var cfg model.DynamicTemplateConfig
+		if err := json.Unmarshal(template.Config, &cfg); err != nil {
+			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
+		}
+		if strings.TrimSpace(cfg.BaseMetric) == "" || cfg.Rate <= 0 {
+			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
+		}
+		rawMetric, ok := metrics[cfg.BaseMetric]
+		if !ok || strings.TrimSpace(rawMetric) == "" {
+			return nil, errs.New(errs.CodeInvalidRequest, "metric is required: "+cfg.BaseMetric)
+		}
+		metricValue, err := util.ParseAmount(rawMetric)
+		if err != nil {
+			return nil, errs.New(errs.CodeInvalidRequest, "invalid metric value: "+cfg.BaseMetric)
+		}
+		amount := new(big.Rat).Mul(metricValue, new(big.Rat).SetFloat64(cfg.Rate))
+		if strings.TrimSpace(cfg.Cap) != "" {
+			capAmount, err := util.ParseAmount(cfg.Cap)
+			if err != nil {
+				return nil, errs.New(errs.CodeInvalidRequest, "invalid template cap")
+			}
+			if amount.Cmp(capAmount) > 0 {
+				amount = capAmount
+			}
+		}
+		return amount, nil
+	default:
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid template type")
+	}
 }
 
 func generateVoucherID() string {
