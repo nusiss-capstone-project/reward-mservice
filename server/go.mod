@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4
-	github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.1
+	github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
@@ -109,5 +109,3 @@ require (
 )
 
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
-
-replace github.com/nusiss-capstone-project/reward-mservice/common => ../common
