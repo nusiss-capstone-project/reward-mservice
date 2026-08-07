@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS issue_records (
     UNIQUE KEY uk_issue_records_reward_request_id (reward_request_id),
     KEY idx_issue_records_client_reference_id (client_reference_id),
     KEY idx_issue_records_issue_request_id (issue_request_id),
+    KEY idx_issue_records_project_user (project_id, user_id),
     CONSTRAINT fk_issue_records_reward_request FOREIGN KEY (reward_request_id) REFERENCES reward_requests (id),
     CONSTRAINT fk_issue_records_issue_request FOREIGN KEY (issue_request_id) REFERENCES issue_requests (id),
     CONSTRAINT fk_issue_records_project FOREIGN KEY (project_id) REFERENCES projects (id)
@@ -159,6 +160,7 @@ CREATE TABLE IF NOT EXISTS issue_records (
 -- config (DYNAMIC):  {"base_metric": "net_deposit", "rate": 0.1, "cap": "100.00000000"}
 CREATE TABLE IF NOT EXISTS templates (
     id           BIGINT       NOT NULL AUTO_INCREMENT,
+    title        VARCHAR(128) NOT NULL DEFAULT '',
     voucher_type VARCHAR(64)  NOT NULL,
     unit         VARCHAR(32)  NOT NULL,
     type         VARCHAR(32)  NOT NULL,
@@ -168,8 +170,7 @@ CREATE TABLE IF NOT EXISTS templates (
     updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     PRIMARY KEY (id),
     KEY idx_templates_status (status),
-    KEY idx_templates_type (type),
-    KEY idx_templates_voucher_unit (voucher_type, unit)
+    KEY idx_templates_type (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO payment_configs (pay_address, voucher_type, unit, payment_account) VALUES
@@ -181,9 +182,10 @@ ON DUPLICATE KEY UPDATE
     unit = VALUES(unit),
     payment_account = VALUES(payment_account);
 
-INSERT INTO templates (id, voucher_type, unit, type, config, status) VALUES
-    (1, 'CRYPTO', 'CRYPTO_USDT', 'FIXED', JSON_OBJECT('amount', '100.00000000'), 'DRAFT'),
-    (2, 'CRYPTO', 'CRYPTO_USDT', 'DYNAMIC', JSON_OBJECT('base_metric', 'net_deposit', 'rate', 0.1, 'cap', '100.00000000'), 'DRAFT')
+INSERT INTO templates (id, title, voucher_type, unit, type, config, status) VALUES
+    (1, 'Fixed USDT Reward', 'CRYPTO', 'CRYPTO_USDT', 'FIXED', JSON_OBJECT('amount', '100.00000000'), 'DRAFT'),
+    (2, 'Dynamic Deposit Reward', 'CRYPTO', 'CRYPTO_USDT', 'DYNAMIC', JSON_OBJECT('base_metric', 'net_deposit', 'rate', 0.1, 'cap', '100.00000000'), 'DRAFT')
 ON DUPLICATE KEY UPDATE
+    title = VALUES(title),
     config = VALUES(config),
     status = VALUES(status);

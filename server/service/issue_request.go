@@ -23,7 +23,7 @@ type IssueRequestService interface {
 	UpdateIssueRequest(ctx context.Context, docID string, issueRequestID int64, req *data.UpdateIssueRequestRequest) (*data.IssueRequestVO, error)
 	SubmitIssueRequest(ctx context.Context, docID string, issueRequestID int64, req *data.SubmitIssueRequestRequest) (*data.UpdateIssueRequestResponse, error)
 	ApproveIssueRequest(ctx context.Context, docID string, issueRequestID int64, req *data.ApproveIssueRequestRequest) (*data.UpdateIssueRequestResponse, error)
-	ListIssueRequestsByDocID(ctx context.Context, docID string, page, size int) (*data.PageResult, error)
+	ListIssueRequestsByDocID(ctx context.Context, docID string, page, size int, status string) (*data.PageResult, error)
 	ProcessKafkaEvent(ctx context.Context, issueRequestID int64) error
 }
 
@@ -77,9 +77,9 @@ func (s *IssueRequestServiceImpl) CreateIssueRequest(
 		return nil, err
 	}
 
-	creator := strings.TrimSpace(req.Creator)
-	if creator == "" {
-		creator = defaultCreator
+	creator, err := util.CurrentUserIDString(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	request := &model.IssueRequest{
@@ -264,6 +264,7 @@ func (s *IssueRequestServiceImpl) ListIssueRequestsByDocID(
 	ctx context.Context,
 	docID string,
 	page, size int,
+	status string,
 ) (*data.PageResult, error) {
 	doc, err := s.loadApprovedDoc(ctx, docID)
 	if err != nil {
@@ -274,7 +275,13 @@ func (s *IssueRequestServiceImpl) ListIssueRequestsByDocID(
 			errs.LogInputError, "doc_id", docID)
 	}
 
-	requests, total, err := s.issueRequestDao.ListByProjectID(ctx, doc.ProjectID, page, size)
+	creator, err := util.ListCreatorFilter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	status = strings.TrimSpace(status)
+
+	requests, total, err := s.issueRequestDao.ListByProjectID(ctx, doc.ProjectID, page, size, status, creator)
 	if err != nil {
 		return nil, issueRequestErr(ctx, errs.Wrap(errs.CodeInternalError, err),
 			errs.LogOperationFailed, "doc_id", docID)
@@ -619,7 +626,6 @@ func toIssueRequestVO(request *model.IssueRequest) *data.IssueRequestVO {
 		Amount:        request.Amount,
 		RequestStatus: request.RequestStatus,
 		ExpenseType:   request.ExpenseType,
-		Creator:       request.Creator,
 		Remark:        request.Remark,
 		CreatedAt:     util.FormatDateTime(request.CreatedAt),
 		UpdatedAt:     util.FormatDateTime(request.UpdatedAt),

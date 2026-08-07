@@ -91,9 +91,9 @@ func (_m *FinanceDocDao) GetByDocID(ctx context.Context, docID string) (*model.F
 	return r0, r1
 }
 
-// List provides a mock function with given fields: ctx, page, size
-func (_m *FinanceDocDao) List(ctx context.Context, page int, size int) ([]*model.FinanceDoc, int64, error) {
-	ret := _m.Called(ctx, page, size)
+// List provides a mock function with given fields: ctx, page, size, status, creator
+func (_m *FinanceDocDao) List(ctx context.Context, page int, size int, status string, creator string) ([]*model.FinanceDoc, int64, error) {
+	ret := _m.Called(ctx, page, size, status, creator)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
@@ -102,48 +102,30 @@ func (_m *FinanceDocDao) List(ctx context.Context, page int, size int) ([]*model
 	var r0 []*model.FinanceDoc
 	var r1 int64
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]*model.FinanceDoc, int64, error)); ok {
-		return rf(ctx, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, string, string) ([]*model.FinanceDoc, int64, error)); ok {
+		return rf(ctx, page, size, status, creator)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []*model.FinanceDoc); ok {
-		r0 = rf(ctx, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, string, string) []*model.FinanceDoc); ok {
+		r0 = rf(ctx, page, size, status, creator)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*model.FinanceDoc)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) int64); ok {
-		r1 = rf(ctx, page, size)
+	if rf, ok := ret.Get(1).(func(context.Context, int, int, string, string) int64); ok {
+		r1 = rf(ctx, page, size, status, creator)
 	} else {
 		r1 = ret.Get(1).(int64)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, int, int) error); ok {
-		r2 = rf(ctx, page, size)
+	if rf, ok := ret.Get(2).(func(context.Context, int, int, string, string) error); ok {
+		r2 = rf(ctx, page, size, status, creator)
 	} else {
 		r2 = ret.Error(2)
 	}
 
 	return r0, r1, r2
-}
-
-// UpdateStatus provides a mock function with given fields: ctx, docID, status, remark
-func (_m *FinanceDocDao) UpdateStatus(ctx context.Context, docID string, status string, remark string) error {
-	ret := _m.Called(ctx, docID, status, remark)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateStatus")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = rf(ctx, docID, status, remark)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // UpdateContent provides a mock function with given fields: ctx, docID, description, applicationDetail
@@ -157,6 +139,24 @@ func (_m *FinanceDocDao) UpdateContent(ctx context.Context, docID string, descri
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) error); ok {
 		r0 = rf(ctx, docID, description, applicationDetail)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateStatus provides a mock function with given fields: ctx, docID, status, remark
+func (_m *FinanceDocDao) UpdateStatus(ctx context.Context, docID string, status string, remark string) error {
+	ret := _m.Called(ctx, docID, status, remark)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateStatus")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, docID, status, remark)
 	} else {
 		r0 = ret.Error(0)
 	}

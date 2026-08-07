@@ -12,7 +12,7 @@ import (
 // CreateTemplate creates a template in DRAFT status.
 //
 // @Summary Create template
-// @Description Create a reward template for campaign ops.
+// @Description Create a reward template for campaign ops. When type=FIXED, config is FixTemplateConfigVO (amount only); when type=DYNAMIC, config is DynamicTemplateConfigVO (base_metric, rate, optional cap).
 // @Tags Admin-Template
 // @Accept json
 // @Produce json
@@ -42,12 +42,12 @@ func CreateTemplate(c *gin.Context) {
 // UpdateTemplate updates a draft template.
 //
 // @Summary Update template
-// @Description Update template config in DRAFT status only.
+// @Description Update template config in DRAFT status only. When type=FIXED, config is FixTemplateConfigVO; when type=DYNAMIC, config is DynamicTemplateConfigVO.
 // @Tags Admin-Template
 // @Accept json
 // @Produce json
 // @Param template_id path int true "Template ID"
-// @Param body body data.UpdateTemplateRequest true "Template payload"
+// @Param body body data.UpdateTemplateRequest true "Template config payload"
 // @Success 200 {object} data.BaseResponse{data=data.TemplateVO}
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
@@ -80,17 +80,18 @@ func UpdateTemplate(c *gin.Context) {
 // ListTemplates lists templates with pagination.
 //
 // @Summary List templates
-// @Description List reward templates for campaign ops.
+// @Description List reward templates for campaign ops. Each item config is FixTemplateConfigVO or DynamicTemplateConfigVO based on type. Optional status filter: DRAFT or PUBLISHED.
 // @Tags Admin-Template
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param size query int false "Page size" default(20)
-// @Success 200 {object} data.BaseResponse{data=data.PageResult}
+// @Param status query string false "Template status filter" Enums(DRAFT,PUBLISHED)
+// @Success 200 {object} data.BaseResponse{data=data.PageResult{items=[]data.TemplateVO}}
 // @Failure 400 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
 // @Router /reward-ms/v1/admin/templates [get]
 func ListTemplates(c *gin.Context) {
-	query := data.PageQuery{}
+	query := data.TemplateListQuery{}
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, data.BaseResponse{
 			Code:   errs.CodeInvalidRequest,
@@ -98,9 +99,7 @@ func ListTemplates(c *gin.Context) {
 		})
 		return
 	}
-	page, size := query.Normalize()
-
-	result, err := service.GetTemplateService().ListTemplates(c.Request.Context(), page, size)
+	result, err := service.GetTemplateService().ListTemplates(c.Request.Context(), query)
 	if err != nil {
 		WriteError(c, err)
 		return

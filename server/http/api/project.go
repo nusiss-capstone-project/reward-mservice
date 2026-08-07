@@ -69,3 +69,21 @@ func ListProjects(c *gin.Context) {
 	}
 	WriteSuccess(c, result)
 }
+
+// ListProjectsWithOngoingIssueRequest lists projects that have at least one ONGOING issue request.
+//
+// @Summary List projects with ongoing issue requests
+// @Description List projects that currently have issue_request.status=ONGOING.
+// @Tags Admin-Project
+// @Produce json
+// @Success 200 {object} data.BaseResponse{data=[]data.ProjectVO}
+// @Failure 500 {object} data.BaseResponse
+// @Router /reward-ms/v1/admin/projects/ongoing [get]
+func ListProjectsWithOngoingIssueRequest(c *gin.Context) {
+	result, err := service.GetProjectService().ListProjectsWithOngoingIssueRequest(c.Request.Context())
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteSuccess(c, result)
+}

@@ -1118,9 +1118,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/reward-ms/v1/admin/projects/ongoing": {
+            "get": {
+                "description": "List projects that currently have issue_request.status=ONGOING.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-Project"
+                ],
+                "summary": "List projects with ongoing issue requests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.ProjectVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/reward-ms/v1/admin/templates": {
             "get": {
-                "description": "List reward templates for campaign ops.",
+                "description": "List reward templates for campaign ops. Each item config is FixTemplateConfigVO or DynamicTemplateConfigVO based on type. Optional status filter: DRAFT or PUBLISHED.",
                 "produces": [
                     "application/json"
                 ],
@@ -1142,6 +1183,16 @@ const docTemplate = `{
                         "description": "Page size",
                         "name": "size",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "PUBLISHED"
+                        ],
+                        "type": "string",
+                        "description": "Template status filter",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1156,7 +1207,22 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/data.PageResult"
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/definitions/data.PageResult"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "items": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "$ref": "#/definitions/data.TemplateVO"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -1178,7 +1244,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a reward template for campaign ops.",
+                "description": "Create a reward template for campaign ops. When type=FIXED, config is FixTemplateConfigVO (amount only); when type=DYNAMIC, config is DynamicTemplateConfigVO (base_metric, rate, optional cap).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1236,7 +1302,7 @@ const docTemplate = `{
         },
         "/reward-ms/v1/admin/templates/{template_id}": {
             "put": {
-                "description": "Update template config in DRAFT status only.",
+                "description": "Update template config in DRAFT status only. When type=FIXED, config is FixTemplateConfigVO; when type=DYNAMIC, config is DynamicTemplateConfigVO.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1256,7 +1322,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Template payload",
+                        "description": "Template config payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1643,7 +1709,35 @@ const docTemplate = `{
             }
         },
         "data.CreateTemplateRequest": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "config",
+                "type",
+                "unit",
+                "voucher_type"
+            ],
+            "properties": {
+                "config": {
+                    "type": "string",
+                    "example": "{\"amount\":\"100.00\"}"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "FIXED",
+                        "DYNAMIC"
+                    ],
+                    "example": "FIXED"
+                },
+                "unit": {
+                    "type": "string",
+                    "example": "CRYPTO_USDT"
+                },
+                "voucher_type": {
+                    "type": "string",
+                    "example": "CRYPTO"
+                }
+            }
         },
         "data.CreateTemplateResponse": {
             "type": "object",
@@ -1871,25 +1965,40 @@ const docTemplate = `{
             "properties": {
                 "config": {},
                 "created_at": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-07-12 10:00:00"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "DRAFT",
+                        "PUBLISHED"
+                    ],
+                    "example": "DRAFT"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "FIXED",
+                        "DYNAMIC"
+                    ],
+                    "example": "FIXED"
                 },
                 "unit": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "CRYPTO_USDT"
                 },
                 "updated_at": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-07-12 10:00:00"
                 },
                 "voucher_type": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "CRYPTO"
                 }
             }
         },
@@ -1962,7 +2071,16 @@ const docTemplate = `{
             }
         },
         "data.UpdateTemplateRequest": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "config"
+            ],
+            "properties": {
+                "config": {
+                    "type": "string",
+                    "example": "{\"amount\":\"100.00\"}"
+                }
+            }
         }
     }
 }`

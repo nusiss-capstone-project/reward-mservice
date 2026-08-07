@@ -93,21 +93,21 @@ func (c *consumer) run(ctx context.Context) {
 
 func (c *consumer) handleRecord(parentCtx context.Context, record *kgo.Record) {
 	start := time.Now()
+	ctx, span := kafkatrace.StartConsume(parentCtx, record)
+	var err error
+	defer func() {
+		kafkatrace.Finish(span, err)
+	}()
+
 	topicHandlers := kafka.HandlersForTopic(record.Topic)
 	if len(topicHandlers) == 0 {
-		log.Logger.Warnw("no handlers registered for topic, skipping commit",
+		log.WithContext(ctx).Warnw("no handlers registered for topic, skipping commit",
 			"topic", record.Topic,
 			"partition", record.Partition,
 			"offset", record.Offset,
 		)
 		return
 	}
-
-	ctx, span := kafkatrace.StartConsume(parentCtx, record)
-	var err error
-	defer func() {
-		kafkatrace.Finish(span, err)
-	}()
 
 	kafkatrace.LogConsumeStart(ctx, record, len(topicHandlers))
 

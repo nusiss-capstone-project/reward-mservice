@@ -63,7 +63,8 @@ message RewardDistributionRequest {
 	string voucherType = 4;
 	string unit = 5;
 	string amount = 6;
-	
+	uint64 templateId = 7;
+  map<string, string> metrics = 8;
 	BaseRequestInfo baseInfo = 255;
 }
 

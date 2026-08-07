@@ -40,19 +40,43 @@ func GetRewardDistributionExecuteProducer() RewardDistributionExecuteProducer {
 	return rewardDistributionExecuteProducerInst
 }
 
-func (p *rewardDistributionExecuteProducerImpl) PublishExecute(ctx context.Context, rewardRequestID int64) (err error) {
+func (p *rewardDistributionExecuteProducerImpl) PublishExecute(ctx context.Context, rewardRequestID int64) error {
 	if rewardRequestID <= 0 {
-		return errors.New("reward_request_id must be positive")
+		err := errors.New("reward_request_id must be positive")
+		log.WithContext(ctx).Errorw("publish reward distribution execute event rejected",
+			"reward_request_id", rewardRequestID,
+			"error", err,
+		)
+		return err
 	}
 
 	event := RewardDistributionExecuteEvent{RewardRequestID: rewardRequestID}
 	payload, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("marshal reward distribution execute event: %w", err)
+		err = fmt.Errorf("marshal reward distribution execute event: %w", err)
+		log.WithContext(ctx).Errorw("publish reward distribution execute event marshal failed",
+			"reward_request_id", rewardRequestID,
+			"error", err,
+		)
+		return err
 	}
+
+	log.WithContext(ctx).Infow("publishing reward distribution execute event",
+		"reward_request_id", rewardRequestID,
+		"topic", p.topic,
+	)
 	key := []byte(fmt.Sprintf("%d", rewardRequestID))
-	defer func() {
-		log.WithContext(ctx).Infof("publish reward distribution execute event done", "reward_request_id", rewardRequestID, "error", err)
-	}()
-	return p.producer.Publish(ctx, p.topic, key, payload)
+	if err := p.producer.Publish(ctx, p.topic, key, payload); err != nil {
+		log.WithContext(ctx).Errorw("publish reward distribution execute event failed",
+			"reward_request_id", rewardRequestID,
+			"topic", p.topic,
+			"error", err,
+		)
+		return err
+	}
+	log.WithContext(ctx).Infow("publish reward distribution execute event succeeded",
+		"reward_request_id", rewardRequestID,
+		"topic", p.topic,
+	)
+	return nil
 }

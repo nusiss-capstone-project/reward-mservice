@@ -14,7 +14,11 @@ import (
 func handleRewardDistributionExecute(ctx context.Context, msg *kafka.Message) error {
 	var event producer.RewardDistributionExecuteEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
-		log.WithContext(ctx).Errorw("invalid reward distribution execute event", "error", err)
+		log.WithContext(ctx).Errorw("invalid reward distribution execute event",
+			"topic", msg.Topic,
+			"offset", msg.Offset,
+			"error", err,
+		)
 		return err
 	}
 
@@ -25,8 +29,19 @@ func handleRewardDistributionExecute(ctx context.Context, msg *kafka.Message) er
 	)
 
 	err := service.GetIssueRecordService().ExecuteRewardDistribution(ctx, event.RewardRequestID)
-	if err == nil || errors.Is(err, service.ErrDistributionDeferred) {
+	if err == nil {
 		return nil
 	}
+	if errors.Is(err, service.ErrDistributionDeferred) {
+		log.WithContext(ctx).Infow("reward distribution execute deferred",
+			"reward_request_id", event.RewardRequestID,
+			"error", err,
+		)
+		return nil
+	}
+	log.WithContext(ctx).Errorw("reward distribution execute handler failed",
+		"reward_request_id", event.RewardRequestID,
+		"error", err,
+	)
 	return err
 }

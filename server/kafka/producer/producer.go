@@ -22,7 +22,11 @@ type kafkaProducerImpl struct {
 
 type nopKafkaProducer struct{}
 
-func (nopKafkaProducer) Publish(context.Context, string, []byte, []byte) error {
+func (nopKafkaProducer) Publish(ctx context.Context, topic string, key, value []byte) error {
+	log.WithContext(ctx).Infow("kafka publish skipped (kafka disabled)",
+		"topic", topic,
+		"key", string(key),
+	)
 	return nil
 }
 
@@ -98,6 +102,7 @@ func (p *kafkaProducerImpl) Publish(ctx context.Context, topic string, key, valu
 		)
 		return produceErr
 	}
+	log.WithContext(ctx).Infow("kafka message published", "topic", topic, "key", string(key), "value", string(value))
 	return nil
 }
 

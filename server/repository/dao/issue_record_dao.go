@@ -16,6 +16,7 @@ type IssueRecordDao interface {
 	Save(ctx context.Context, tx *gorm.DB, issueRecord *model.IssueRecord) error
 	GetByID(ctx context.Context, id int64) (*model.IssueRecord, error)
 	GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error)
+	ListByProjectIDAndUserID(ctx context.Context, projectID, userID int64) ([]*model.IssueRecord, error)
 }
 
 var (
@@ -61,6 +62,11 @@ func (d *issueRecordDaoImpl) Save(ctx context.Context, tx *gorm.DB, issueRecord 
 		)
 		return err
 	}
+	log.WithContext(ctx).Infow("issue record saved",
+		"issue_record_id", issueRecord.ID,
+		"voucher_id", issueRecord.VoucherID,
+		"issue_status", issueRecord.IssueStatus,
+	)
 	return nil
 }
 
@@ -88,4 +94,24 @@ func (d *issueRecordDaoImpl) GetByClientRefId(ctx context.Context, clientRefID s
 		return nil, err
 	}
 	return &record, nil
+}
+
+func (d *issueRecordDaoImpl) ListByProjectIDAndUserID(
+	ctx context.Context,
+	projectID, userID int64,
+) ([]*model.IssueRecord, error) {
+	var records []*model.IssueRecord
+	err := d.db.WithContext(ctx).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Order("created_at DESC").
+		Find(&records).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("list issue records by project and user failed",
+			"project_id", projectID,
+			"user_id", userID,
+			"error", err,
+		)
+		return nil, err
+	}
+	return records, nil
 }

@@ -88,20 +88,23 @@ func UpdateIssueRequest(c *gin.Context) {
 // @Param doc_id path string true "Finance doc ID"
 // @Param page query int false "Page number" default(1)
 // @Param size query int false "Page size" default(20)
+// @Param status query string false "Status filter"
 // @Success 200 {object} data.BaseResponse{data=data.PageResult}
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
 // @Router /reward-ms/v1/admin/finance-docs/{doc_id}/issue-requests [get]
 func ListIssueRequestsByDocID(c *gin.Context) {
-	query := data.PageQuery{}
+	query := data.IssueRequestListQuery{}
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, data.BaseResponse{Code: errs.CodeInvalidRequest, ErrMsg: err.Error()})
 		return
 	}
 	page, size := query.Normalize()
 
-	result, err := service.GetIssueRequestService().ListIssueRequestsByDocID(c.Request.Context(), c.Param("doc_id"), page, size)
+	result, err := service.GetIssueRequestService().ListIssueRequestsByDocID(
+		c.Request.Context(), c.Param("doc_id"), page, size, query.Status,
+	)
 	if err != nil {
 		WriteError(c, err)
 		return

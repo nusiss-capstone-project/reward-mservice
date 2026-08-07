@@ -26,6 +26,7 @@ type DynamicTemplateConfig struct {
 
 type Template struct {
 	ID          int64          `gorm:"primaryKey;autoIncrement"`
+	Title       string         `gorm:"type:varchar(128);not null;default:''"`
 	VoucherType string         `gorm:"type:varchar(64);not null"`
 	Unit        string         `gorm:"type:varchar(32);not null"`
 	Type        string         `gorm:"type:varchar(32);not null"`

@@ -95,9 +95,9 @@ func (_m *IssueRequestDao) GetByIDForUpdate(ctx context.Context, tx *gorm.DB, id
 	return r0, r1
 }
 
-// ListByProjectID provides a mock function with given fields: ctx, projectID, page, size
-func (_m *IssueRequestDao) ListByProjectID(ctx context.Context, projectID int64, page int, size int) ([]*model.IssueRequest, int64, error) {
-	ret := _m.Called(ctx, projectID, page, size)
+// ListByProjectID provides a mock function with given fields: ctx, projectID, page, size, status, creator
+func (_m *IssueRequestDao) ListByProjectID(ctx context.Context, projectID int64, page int, size int, status string, creator string) ([]*model.IssueRequest, int64, error) {
+	ret := _m.Called(ctx, projectID, page, size, status, creator)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListByProjectID")
@@ -106,30 +106,60 @@ func (_m *IssueRequestDao) ListByProjectID(ctx context.Context, projectID int64,
 	var r0 []*model.IssueRequest
 	var r1 int64
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int, int) ([]*model.IssueRequest, int64, error)); ok {
-		return rf(ctx, projectID, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int, int, string, string) ([]*model.IssueRequest, int64, error)); ok {
+		return rf(ctx, projectID, page, size, status, creator)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int, int) []*model.IssueRequest); ok {
-		r0 = rf(ctx, projectID, page, size)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int, int, string, string) []*model.IssueRequest); ok {
+		r0 = rf(ctx, projectID, page, size, status, creator)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*model.IssueRequest)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int, int) int64); ok {
-		r1 = rf(ctx, projectID, page, size)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int, int, string, string) int64); ok {
+		r1 = rf(ctx, projectID, page, size, status, creator)
 	} else {
 		r1 = ret.Get(1).(int64)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, int64, int, int) error); ok {
-		r2 = rf(ctx, projectID, page, size)
+	if rf, ok := ret.Get(2).(func(context.Context, int64, int, int, string, string) error); ok {
+		r2 = rf(ctx, projectID, page, size, status, creator)
 	} else {
 		r2 = ret.Error(2)
 	}
 
 	return r0, r1, r2
+}
+
+// ListDistinctProjectIDsByStatus provides a mock function with given fields: ctx, status
+func (_m *IssueRequestDao) ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error) {
+	ret := _m.Called(ctx, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListDistinctProjectIDsByStatus")
+	}
+
+	var r0 []int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]int64, error)); ok {
+		return rf(ctx, status)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []int64); ok {
+		r0 = rf(ctx, status)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, status)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // MarkOngoing provides a mock function with given fields: ctx, tx, id

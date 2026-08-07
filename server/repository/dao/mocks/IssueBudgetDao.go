@@ -89,36 +89,6 @@ func (_m *IssueBudgetDao) Create(ctx context.Context, tx *gorm.DB, budget *model
 	return r0
 }
 
-// GetByIssueRequestID provides a mock function with given fields: ctx, issueRequestID
-func (_m *IssueBudgetDao) GetByIssueRequestID(ctx context.Context, issueRequestID int64) (*model.IssueBudget, error) {
-	ret := _m.Called(ctx, issueRequestID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByIssueRequestID")
-	}
-
-	var r0 *model.IssueBudget
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*model.IssueBudget, error)); ok {
-		return rf(ctx, issueRequestID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *model.IssueBudget); ok {
-		r0 = rf(ctx, issueRequestID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.IssueBudget)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = rf(ctx, issueRequestID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetByID provides a mock function with given fields: ctx, id
 func (_m *IssueBudgetDao) GetByID(ctx context.Context, id int64) (*model.IssueBudget, error) {
 	ret := _m.Called(ctx, id)
@@ -142,6 +112,36 @@ func (_m *IssueBudgetDao) GetByID(ctx context.Context, id int64) (*model.IssueBu
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetByIssueRequestID provides a mock function with given fields: ctx, issueRequestID
+func (_m *IssueBudgetDao) GetByIssueRequestID(ctx context.Context, issueRequestID int64) (*model.IssueBudget, error) {
+	ret := _m.Called(ctx, issueRequestID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByIssueRequestID")
+	}
+
+	var r0 *model.IssueBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*model.IssueBudget, error)); ok {
+		return rf(ctx, issueRequestID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *model.IssueBudget); ok {
+		r0 = rf(ctx, issueRequestID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.IssueBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, issueRequestID)
 	} else {
 		r1 = ret.Error(1)
 	}

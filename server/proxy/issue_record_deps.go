@@ -19,11 +19,11 @@ func (noopRiskChecker) Check(context.Context, int64) (bool, string) {
 }
 
 type VoucherIssuer interface {
+	// Issue performs downstream voucher issuance.
+	// On success: businessSuccess=true and issue_record can be updated to ISSUED.
+	// On permanent business failure: businessSuccess=false, err=nil (issue_record -> FAILED).
+	// On transient failure: err!=nil (issue_record stays PENDING and will retry).
 	Issue(ctx context.Context, record *IssueRecordSnapshot, amount string) (businessSuccess bool, failedReason string, err error)
-}
-
-func GetVoucherIssuer() VoucherIssuer {
-	return &noopVoucherIssuer{}
 }
 
 type IssueRecordSnapshot struct {
@@ -32,10 +32,4 @@ type IssueRecordSnapshot struct {
 	ProjectID   int64
 	VoucherType string
 	Unit        string
-}
-
-type noopVoucherIssuer struct{}
-
-func (noopVoucherIssuer) Issue(context.Context, *IssueRecordSnapshot, string) (bool, string, error) {
-	return true, "", nil
 }

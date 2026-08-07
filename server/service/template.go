@@ -19,7 +19,7 @@ import (
 type TemplateService interface {
 	CreateTemplate(ctx context.Context, req *data.CreateTemplateRequest) (int64, error)
 	UpdateTemplate(ctx context.Context, templateID int64, req *data.UpdateTemplateRequest) (*data.TemplateVO, error)
-	ListTemplates(ctx context.Context, page, size int) (*data.PageResult, error)
+	ListTemplates(ctx context.Context, query data.TemplateListQuery) (*data.PageResult, error)
 	PublishTemplate(ctx context.Context, templateID int64) (*data.PublishTemplateResponse, error)
 }
 
@@ -48,12 +48,13 @@ func (s *TemplateServiceImpl) CreateTemplate(ctx context.Context, req *data.Crea
 			errs.LogInputError, "reason", "nil request")
 	}
 
-	input, err := parseTemplateInput(req.VoucherType, req.Unit, req.Type, req.Config)
+	input, err := parseTemplateInput(req.Title, req.VoucherType, req.Unit, req.Type, req.Config)
 	if err != nil {
 		return 0, templateErr(ctx, err, errs.LogInputError)
 	}
 
 	template := &model.Template{
+		Title:       input.title,
 		VoucherType: input.voucherType,
 		Unit:        input.unit,
 		Type:        input.templateType,
@@ -93,27 +94,33 @@ func (s *TemplateServiceImpl) UpdateTemplate(
 		return nil, templateErr(ctx, err, errs.LogInputError, "template_id", templateID)
 	}
 
-	if err := s.templateDao.Update(ctx, templateID, config); err != nil {
+	title := strings.TrimSpace(req.Title)
+	if err := s.templateDao.Update(ctx, templateID, title, config); err != nil {
 		return nil, templateErr(ctx, errs.Wrap(errs.CodeInternalError, err),
 			errs.LogOperationFailed, "template_id", templateID)
 	}
 
 	template.Config = config
+	if title != "" {
+		template.Title = title
+	}
 	log.WithContext(ctx).Infof("template config updated: id=%d type=%s", templateID, template.Type)
 	return toTemplateVO(template)
 }
 
-func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, page, size int) (*data.PageResult, error) {
+func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, query data.TemplateListQuery) (*data.PageResult, error) {
 	logger := log.WithContext(ctx)
-	if page <= 0 || size <= 0 {
-		return nil, templateErr(ctx, errs.New(errs.CodeInvalidPagination, ""),
-			errs.LogInputError, "page", page, "size", size)
+	page, size := query.Normalize()
+
+	normalizedStatus, err := util.ValidateTemplateStatus(query.Status)
+	if err != nil {
+		return nil, templateErr(ctx, err, errs.LogInputError, "status", query.Status)
 	}
 
-	templates, total, err := s.templateDao.List(ctx, page, size)
+	templates, total, err := s.templateDao.List(ctx, page, size, normalizedStatus)
 	if err != nil {
 		return nil, templateErr(ctx, errs.Wrap(errs.CodeInternalError, err),
-			errs.LogOperationFailed, "page", page, "size", size)
+			errs.LogOperationFailed, "page", page, "size", size, "status", normalizedStatus)
 	}
 
 	items := make([]*data.TemplateVO, 0, len(templates))
@@ -125,7 +132,7 @@ func (s *TemplateServiceImpl) ListTemplates(ctx context.Context, page, size int)
 		}
 		items = append(items, vo)
 	}
-	logger.Infof("templates listed: page=%d size=%d total=%d", page, size, total)
+	logger.Infof("templates listed: page=%d size=%d total=%d status=%s", page, size, total, normalizedStatus)
 	return &data.PageResult{
 		Total: total,
 		Page:  page,
@@ -194,13 +201,18 @@ func (s *TemplateServiceImpl) loadEditableTemplate(ctx context.Context, template
 }
 
 type templateInput struct {
+	title        string
 	voucherType  string
 	unit         string
 	templateType string
 	config       []byte
 }
 
-func parseTemplateInput(voucherType, unit, templateType string, config json.RawMessage) (*templateInput, error) {
+func parseTemplateInput(title, voucherType, unit, templateType string, config json.RawMessage) (*templateInput, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "title is required")
+	}
 	validatedVoucherType, err := util.ValidateVoucherType(voucherType)
 	if err != nil {
 		return nil, err
@@ -222,6 +234,7 @@ func parseTemplateInput(voucherType, unit, templateType string, config json.RawM
 		return nil, err
 	}
 	return &templateInput{
+		title:        title,
 		voucherType:  validatedVoucherType,
 		unit:         validatedUnit,
 		templateType: normalizedType,
@@ -241,6 +254,10 @@ func parseTemplateConfig(templateType string, raw json.RawMessage) ([]byte, erro
 }
 
 func parseFixTemplateConfig(raw json.RawMessage) ([]byte, error) {
+	if err := validateConfigKeys(raw, "amount"); err != nil {
+		return nil, err
+	}
+
 	var payload struct {
 		Amount json.RawMessage `json:"amount"`
 	}
@@ -263,6 +280,10 @@ func parseFixTemplateConfig(raw json.RawMessage) ([]byte, error) {
 }
 
 func parseDynamicTemplateConfig(raw json.RawMessage) ([]byte, error) {
+	if err := validateConfigKeys(raw, "base_metric", "rate", "cap"); err != nil {
+		return nil, err
+	}
+
 	var cfg data.DynamicTemplateConfigVO
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, errs.New(errs.CodeInvalidRequest, "invalid config")
@@ -287,6 +308,23 @@ func parseDynamicTemplateConfig(raw json.RawMessage) ([]byte, error) {
 	}
 
 	return json.Marshal(normalized)
+}
+
+func validateConfigKeys(raw json.RawMessage, allowed ...string) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return errs.New(errs.CodeInvalidRequest, "invalid config")
+	}
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
+	}
+	for key := range fields {
+		if _, ok := allowedSet[key]; !ok {
+			return errs.New(errs.CodeInvalidRequest, "unexpected config field: "+key)
+		}
+	}
+	return nil
 }
 
 func normalizeConfigAmount(raw json.RawMessage) (string, error) {
@@ -322,6 +360,7 @@ func toTemplateVO(template *model.Template) (*data.TemplateVO, error) {
 	}
 	return &data.TemplateVO{
 		ID:          template.ID,
+		Title:       template.Title,
 		VoucherType: template.VoucherType,
 		Unit:        template.Unit,
 		Type:        template.Type,

@@ -2,13 +2,16 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"math/big"
 	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/nusiss-capstone-project/reward-mservice/common/rewardpb"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
+	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/proxy"
@@ -32,6 +35,7 @@ var (
 type IssueRecordService interface {
 	ProcessVoucherIssueRequest(ctx context.Context, request *rewardpb.RewardDistributionRequest) error
 	ExecuteRewardDistribution(ctx context.Context, rewardRequestID int64) error
+	ListIssueRecordsByProjectAndUser(ctx context.Context, projectID, userID int64) ([]*data.IssueRecordVO, error)
 }
 
 type IssueRecordServiceImpl struct {
@@ -40,6 +44,7 @@ type IssueRecordServiceImpl struct {
 	projectDao       dao.ProjectDao
 	projectBudgetDao dao.ProjectBudgetDao
 	issueBudgetDao   dao.IssueBudgetDao
+	templateDao      dao.TemplateDao
 	executeProducer  producer.RewardDistributionExecuteProducer
 	resultProducer   producer.RewardDistributionResultProducer
 	riskChecker      proxy.RiskChecker
@@ -60,6 +65,7 @@ func GetIssueRecordService() IssueRecordService {
 			projectDao:       dao.GetProjectDao(),
 			projectBudgetDao: dao.GetProjectBudgetDao(),
 			issueBudgetDao:   dao.GetIssueBudgetDao(),
+			templateDao:      dao.GetTemplateDao(),
 			executeProducer:  producer.GetRewardDistributionExecuteProducer(),
 			resultProducer:   producer.GetRewardDistributionResultProducer(),
 			riskChecker:      proxy.GetRiskChecker(),
@@ -68,6 +74,39 @@ func GetIssueRecordService() IssueRecordService {
 		}
 	})
 	return issueRecordServiceInst
+}
+
+func (s *IssueRecordServiceImpl) ListIssueRecordsByProjectAndUser(
+	ctx context.Context,
+	projectID, userID int64,
+) ([]*data.IssueRecordVO, error) {
+	if projectID <= 0 {
+		return nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "project_id must be positive"),
+			errs.LogInputError, "project_id", projectID)
+	}
+	if userID <= 0 {
+		return nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "user_id must be positive"),
+			errs.LogInputError, "user_id", userID)
+	}
+
+	records, err := s.issueRecordDao.ListByProjectIDAndUserID(ctx, projectID, userID)
+	if err != nil {
+		return nil, issueRecordErr(ctx, errs.Wrap(errs.CodeInternalError, err),
+			errs.LogOperationFailed, "project_id", projectID, "user_id", userID)
+	}
+
+	items := make([]*data.IssueRecordVO, 0, len(records))
+	for _, record := range records {
+		items = append(items, &data.IssueRecordVO{
+			VoucherID:    record.VoucherID,
+			VoucherType:  record.VoucherType,
+			Unit:         record.Unit,
+			RewardAmount: record.RewardAmount,
+			Status:       record.IssueStatus,
+			CreatedAt:    util.FormatDateTime(record.CreatedAt),
+		})
+	}
+	return items, nil
 }
 
 func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
@@ -79,9 +118,20 @@ func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
 			errs.LogInputError, "reason", "nil request")
 	}
 
+	log.WithContext(ctx).Infow("reward distribution request processing started",
+		"client_ref_id", request.GetClientRefId(),
+		"user_id", request.GetUserId(),
+		"project_id", request.GetProjectId(),
+		"template_id", request.GetTemplateId(),
+	)
+
 	input, err := parseRewardDistributionRequest(request)
 	if err != nil {
 		return issueRecordErr(ctx, err, errs.LogInputError, "client_ref_id", request.GetClientRefId())
+	}
+	if err := s.resolveRewardAmount(ctx, input, request); err != nil {
+		return issueRecordErr(ctx, err, errs.LogInputError,
+			"client_ref_id", input.clientRefID, "template_id", request.GetTemplateId())
 	}
 
 	budget, err := s.projectBudgetDao.GetByProjectIDVoucherTypeUnit(ctx, input.projectID, input.voucherType, input.unit)
@@ -138,6 +188,28 @@ func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
 }
 
 func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, rewardRequestID int64) error {
+	log.WithContext(ctx).Infow("reward distribution execute started", "reward_request_id", rewardRequestID)
+
+	err := s.executeRewardDistribution(ctx, rewardRequestID)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrDistributionDeferred) {
+		log.WithContext(ctx).Infow("reward distribution execute deferred",
+			"reward_request_id", rewardRequestID, "error", err)
+		return err
+	}
+	if errors.Is(err, ErrDistributionRetry) {
+		log.WithContext(ctx).Warnw("reward distribution execute will retry",
+			"reward_request_id", rewardRequestID, "error", err)
+		return err
+	}
+	log.WithContext(ctx).Errorw("reward distribution execute failed",
+		"reward_request_id", rewardRequestID, "error", err)
+	return err
+}
+
+func (s *IssueRecordServiceImpl) executeRewardDistribution(ctx context.Context, rewardRequestID int64) error {
 	if rewardRequestID <= 0 {
 		return issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "reward_request_id must be positive"),
 			errs.LogInputError, "reward_request_id", rewardRequestID)
@@ -145,7 +217,6 @@ func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, 
 
 	rewardRequest, err := s.rewardRequestDao.GetByID(ctx, rewardRequestID)
 	if err != nil {
-		log.WithContext(ctx).Errorw("failed to get reward request by id", "reward_request_id", rewardRequestID, "error", err)
 		return err
 	}
 	if rewardRequest == nil {
@@ -153,12 +224,15 @@ func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, 
 		return nil
 	}
 	if rewardRequest.Status != model.RewardRequestStatusPending {
+		log.WithContext(ctx).Infow("reward request not pending, skip",
+			"reward_request_id", rewardRequestID,
+			"status", rewardRequest.Status,
+		)
 		return nil
 	}
 
 	existingRecord, err := s.issueRecordDao.GetByClientRefId(ctx, rewardRequest.ClientRefID)
 	if err != nil {
-		log.WithContext(ctx).Errorw("failed to get issue record by client ref id", "client_ref_id", rewardRequest.ClientRefID, "error", err)
 		return err
 	}
 	if existingRecord != nil && existingRecord.IssueStatus != model.IssueRecordStatusPending {
@@ -509,7 +583,14 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 		"voucher_id", record.VoucherID,
 		"issue_status", record.IssueStatus,
 	)
-	return s.publishTerminalResult(ctx, rewardRequest, record)
+	if err := s.publishTerminalResult(ctx, rewardRequest, record); err != nil {
+		return issueRecordErr(ctx, err, errs.LogOperationFailed,
+			"reward_request_id", rewardRequest.ID,
+			"voucher_id", record.VoucherID,
+			"client_ref_id", rewardRequest.ClientRefID,
+		)
+	}
+	return nil
 }
 
 func (s *IssueRecordServiceImpl) publishTerminalResult(
@@ -569,28 +650,145 @@ func parseRewardDistributionRequest(request *rewardpb.RewardDistributionRequest)
 		return nil, errs.New(errs.CodeInvalidRequest, "project_id is required")
 	}
 
-	voucherType, err := util.ValidateVoucherType(request.GetVoucherType())
-	if err != nil {
-		return nil, err
-	}
-	unit, err := util.ValidateUnit(request.GetUnit())
-	if err != nil {
-		return nil, err
-	}
-
-	amount, err := util.ParseAmount(request.GetAmount())
-	if err != nil || amount.Sign() <= 0 {
-		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
-	}
-
 	return &rewardDistributionInput{
 		clientRefID: clientRefID,
 		userID:      int64(request.GetUserId()),
 		projectID:   int64(request.GetProjectId()),
-		voucherType: voucherType,
-		unit:        unit,
-		amount:      util.FormatAmount(amount),
 	}, nil
+}
+
+func (s *IssueRecordServiceImpl) resolveRewardAmount(
+	ctx context.Context,
+	input *rewardDistributionInput,
+	request *rewardpb.RewardDistributionRequest,
+) error {
+	if request.GetTemplateId() > 0 {
+		return s.resolveRewardAmountFromTemplate(ctx, input, int64(request.GetTemplateId()), request.GetMetrics())
+	}
+	return resolveRewardAmountFromRequest(input, request)
+}
+
+func resolveRewardAmountFromRequest(
+	input *rewardDistributionInput,
+	request *rewardpb.RewardDistributionRequest,
+) error {
+	voucherType, err := util.ValidateVoucherType(request.GetVoucherType())
+	if err != nil {
+		return err
+	}
+	unit, err := util.ValidateUnit(request.GetUnit())
+	if err != nil {
+		return err
+	}
+	amount, err := util.ParseAmount(request.GetAmount())
+	if err != nil || amount.Sign() <= 0 {
+		return errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+	input.voucherType = voucherType
+	input.unit = unit
+	input.amount = util.FormatAmount(amount)
+	return nil
+}
+
+func (s *IssueRecordServiceImpl) resolveRewardAmountFromTemplate(
+	ctx context.Context,
+	input *rewardDistributionInput,
+	templateID int64,
+	metrics map[string]string,
+) error {
+	template, err := s.templateDao.GetByID(ctx, templateID)
+	if err != nil {
+		return errs.Wrap(errs.CodeInternalError, err)
+	}
+	if template == nil {
+		return errs.New(errs.CodeTemplateNotFound, "")
+	}
+	if template.Status != model.TemplateStatusPublished {
+		return errs.New(errs.CodeInvalidRequest, "template is not published")
+	}
+
+	amount, err := calculateTemplateRewardAmount(template, metrics)
+	if err != nil {
+		return err
+	}
+	if amount.Sign() <= 0 {
+		return errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+
+	input.voucherType = template.VoucherType
+	input.unit = template.Unit
+	input.amount = util.FormatAmount(amount)
+	return nil
+}
+
+func calculateTemplateRewardAmount(template *model.Template, metrics map[string]string) (*big.Rat, error) {
+	switch template.Type {
+	case model.TemplateTypeFixed:
+		return calculateFixedTemplateRewardAmount(template.Config)
+	case model.TemplateTypeDynamic:
+		return calculateDynamicTemplateRewardAmount(template.Config, metrics)
+	default:
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid template type")
+	}
+}
+
+func calculateFixedTemplateRewardAmount(raw []byte) (*big.Rat, error) {
+	var cfg model.FixTemplateConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	amount, err := util.ParseAmount(cfg.Amount)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+	return amount, nil
+}
+
+func calculateDynamicTemplateRewardAmount(raw []byte, metrics map[string]string) (*big.Rat, error) {
+	cfg, err := parseAndValidateDynamicTemplateConfig(raw)
+	if err != nil {
+		return nil, err
+	}
+	metricValue, err := parseRewardMetricValue(cfg.BaseMetric, metrics)
+	if err != nil {
+		return nil, err
+	}
+
+	amount := new(big.Rat).Mul(metricValue, new(big.Rat).SetFloat64(cfg.Rate))
+	if strings.TrimSpace(cfg.Cap) == "" {
+		return amount, nil
+	}
+	capAmount, err := util.ParseAmount(cfg.Cap)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid template cap")
+	}
+	if amount.Cmp(capAmount) > 0 {
+		return capAmount, nil
+	}
+	return amount, nil
+}
+
+func parseAndValidateDynamicTemplateConfig(raw []byte) (*model.DynamicTemplateConfig, error) {
+	var cfg model.DynamicTemplateConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	if strings.TrimSpace(cfg.BaseMetric) == "" || cfg.Rate <= 0 {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	return &cfg, nil
+}
+
+func parseRewardMetricValue(baseMetric string, metrics map[string]string) (*big.Rat, error) {
+	rawMetric, ok := metrics[baseMetric]
+	if !ok || strings.TrimSpace(rawMetric) == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "metric is required: "+baseMetric)
+	}
+	metricValue, err := util.ParseAmount(rawMetric)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid metric value: "+baseMetric)
+	}
+	return metricValue, nil
 }
 
 func generateVoucherID() string {

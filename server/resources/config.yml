@@ -29,4 +29,7 @@ kafka:
     - reward.finance_doc.approved
     - reward.issue_request.approved
     - reward.distribution.execute
-    - reward.distribution.result
+
+asset_grpc:
+  host: "127.0.0.1"
+  port: 5004

@@ -5,7 +5,6 @@ type CreateIssueRequestRequest struct {
 	Unit        string `json:"unit" binding:"required"`
 	Amount      string `json:"amount" binding:"required"`
 	ExpenseType string `json:"expense_type" binding:"required,oneof=REFUND REWARD OTHERS"`
-	Creator     string `json:"creator"`
 	Remark      string `json:"remark"`
 }
 
@@ -34,7 +33,6 @@ type IssueRequestVO struct {
 	Amount        string `json:"amount"`
 	RequestStatus string `json:"request_status"`
 	ExpenseType   string `json:"expense_type"`
-	Creator       string `json:"creator"`
 	Remark        string `json:"remark"`
 	CreatedAt     string `json:"created_at,omitempty"`
 	UpdatedAt     string `json:"updated_at,omitempty"`

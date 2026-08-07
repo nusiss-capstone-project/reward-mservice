@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 )
 
 const RewardDistributionResultTopic = "reward.distribution.result"
@@ -47,13 +49,46 @@ func (p *rewardDistributionResultProducerImpl) PublishResult(
 	event RewardDistributionResultEvent,
 ) error {
 	if event.ClientRefID == "" {
-		return errors.New("client_ref_id is required")
+		err := errors.New("client_ref_id is required")
+		log.WithContext(ctx).Errorw("publish reward distribution result event rejected",
+			"voucher_id", event.VoucherID,
+			"error", err,
+		)
+		return err
 	}
 
 	payload, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("marshal reward distribution result event: %w", err)
+		err = fmt.Errorf("marshal reward distribution result event: %w", err)
+		log.WithContext(ctx).Errorw("publish reward distribution result event marshal failed",
+			"client_ref_id", event.ClientRefID,
+			"voucher_id", event.VoucherID,
+			"error", err,
+		)
+		return err
 	}
+
+	log.WithContext(ctx).Infow("publishing reward distribution result event",
+		"client_ref_id", event.ClientRefID,
+		"voucher_id", event.VoucherID,
+		"status", event.Status,
+		"topic", p.topic,
+	)
 	key := []byte(event.ClientRefID)
-	return p.producer.Publish(ctx, p.topic, key, payload)
+	if err := p.producer.Publish(ctx, p.topic, key, payload); err != nil {
+		log.WithContext(ctx).Errorw("publish reward distribution result event failed",
+			"client_ref_id", event.ClientRefID,
+			"voucher_id", event.VoucherID,
+			"topic", p.topic,
+			"error", err,
+		)
+		return err
+	}
+	log.WithContext(ctx).Infow("publish reward distribution result event succeeded",
+		"client_ref_id", event.ClientRefID,
+		"voucher_id", event.VoucherID,
+		"status", event.Status,
+		"topic", p.topic,
+	)
+	return nil
 }

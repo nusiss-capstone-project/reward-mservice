@@ -4,36 +4,17 @@ import (
 	"context"
 	"testing"
 
+	commonauth "github.com/nusiss-capstone-project/identity-mservice/common/auth"
 	"github.com/nusiss-capstone-project/reward-mservice/server/config"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
+	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-type mockProjectDao struct {
-	mock.Mock
-}
-
-func (m *mockProjectDao) Create(ctx context.Context, project *model.Project) (int64, error) {
-	args := m.Called(ctx, project)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockProjectDao) GetByID(ctx context.Context, id int64) (*model.Project, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Project), args.Error(1)
-}
-
-func (m *mockProjectDao) List(ctx context.Context, page, size int) ([]*model.Project, int64, error) {
-	args := m.Called(ctx, page, size)
-	return args.Get(0).([]*model.Project), args.Get(1).(int64), args.Error(2)
-}
 
 func initServiceTestEnv() {
 	config.Config = &config.Conf{
@@ -45,6 +26,21 @@ func initServiceTestEnv() {
 	log.InitLogger()
 }
 
+func authCtx(userID int64, role string) context.Context {
+	return commonauth.WithUser(context.Background(), &commonauth.User{
+		InternalUserID: userID,
+		Role:           role,
+	})
+}
+
+func adminAuthCtx() context.Context {
+	return authCtx(1, commonauth.RoleAdmin)
+}
+
+func campaignOpsAuthCtx(userID int64) context.Context {
+	return authCtx(userID, commonauth.RoleCampaignOps)
+}
+
 func TestGetProjectServiceSingleton(t *testing.T) {
 	initServiceTestEnv()
 	s1 := GetProjectService()
@@ -54,7 +50,7 @@ func TestGetProjectServiceSingleton(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
+	projectDao := new(mocks.ProjectDao)
 	svc := &ProjectServiceImpl{projectDao: projectDao}
 
 	projectDao.On("Create", mock.Anything, mock.Anything).Return(int64(10), nil).Once()
@@ -69,7 +65,7 @@ func TestCreateProject(t *testing.T) {
 
 func TestCreateProjectValidation(t *testing.T) {
 	initServiceTestEnv()
-	svc := &ProjectServiceImpl{projectDao: new(mockProjectDao)}
+	svc := &ProjectServiceImpl{projectDao: new(mocks.ProjectDao)}
 
 	_, err := svc.CreateProject(context.Background(), &data.CreateProjectRequest{Name: " "})
 	assert.Error(t, err)
@@ -80,7 +76,7 @@ func TestCreateProjectValidation(t *testing.T) {
 
 func TestListProjects(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
+	projectDao := new(mocks.ProjectDao)
 	svc := &ProjectServiceImpl{projectDao: projectDao}
 
 	projectDao.On("List", mock.Anything, 1, 20).Return([]*model.Project{
@@ -97,7 +93,7 @@ func TestListProjects(t *testing.T) {
 
 func TestGetProjectByIDNotFound(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
+	projectDao := new(mocks.ProjectDao)
 	svc := &ProjectServiceImpl{projectDao: projectDao}
 
 	projectDao.On("GetByID", mock.Anything, int64(99)).Return(nil, nil).Once()
@@ -111,7 +107,7 @@ func TestGetProjectByIDNotFound(t *testing.T) {
 
 func TestGetProjectByIDSuccess(t *testing.T) {
 	initServiceTestEnv()
-	projectDao := new(mockProjectDao)
+	projectDao := new(mocks.ProjectDao)
 	svc := &ProjectServiceImpl{projectDao: projectDao}
 
 	projectDao.On("GetByID", mock.Anything, int64(1)).
@@ -124,7 +120,7 @@ func TestGetProjectByIDSuccess(t *testing.T) {
 
 func TestGetProjectByIDInvalidID(t *testing.T) {
 	initServiceTestEnv()
-	svc := &ProjectServiceImpl{projectDao: new(mockProjectDao)}
+	svc := &ProjectServiceImpl{projectDao: new(mocks.ProjectDao)}
 
 	_, err := svc.GetProjectByID(context.Background(), 0)
 	assert.Error(t, err)
@@ -135,11 +131,50 @@ func TestGetProjectByIDInvalidID(t *testing.T) {
 
 func TestListProjectsInvalidPagination(t *testing.T) {
 	initServiceTestEnv()
-	svc := &ProjectServiceImpl{projectDao: new(mockProjectDao)}
+	svc := &ProjectServiceImpl{projectDao: new(mocks.ProjectDao)}
 
 	_, err := svc.ListProjects(context.Background(), 0, 20)
 	assert.Error(t, err)
 	var appErr *errs.AppError
 	assert.ErrorAs(t, err, &appErr)
 	assert.Equal(t, errs.CodeInvalidPagination, appErr.Code)
+}
+
+func TestListProjectsWithOngoingIssueRequest(t *testing.T) {
+	initServiceTestEnv()
+	projectDao := new(mocks.ProjectDao)
+	issueRequestDao := new(mocks.IssueRequestDao)
+	svc := &ProjectServiceImpl{
+		projectDao:      projectDao,
+		issueRequestDao: issueRequestDao,
+	}
+
+	issueRequestDao.On("ListDistinctProjectIDsByStatus", mock.Anything, model.IssueRequestStatusOngoing).
+		Return([]int64{2}, nil).Once()
+	projectDao.On("ListByIDs", mock.Anything, []int64{2}).Return([]*model.Project{
+		{ID: 2, Name: "Ongoing Project", Description: "has ongoing issue request"},
+	}, nil).Once()
+
+	items, err := svc.ListProjectsWithOngoingIssueRequest(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, items, 1)
+	assert.Equal(t, "Ongoing Project", items[0].Name)
+}
+
+func TestListProjectsWithOngoingIssueRequestEmpty(t *testing.T) {
+	initServiceTestEnv()
+	projectDao := new(mocks.ProjectDao)
+	issueRequestDao := new(mocks.IssueRequestDao)
+	svc := &ProjectServiceImpl{
+		projectDao:      projectDao,
+		issueRequestDao: issueRequestDao,
+	}
+
+	issueRequestDao.On("ListDistinctProjectIDsByStatus", mock.Anything, model.IssueRequestStatusOngoing).
+		Return([]int64{}, nil).Once()
+
+	items, err := svc.ListProjectsWithOngoingIssueRequest(context.Background())
+	assert.NoError(t, err)
+	assert.Empty(t, items)
+	projectDao.AssertNotCalled(t, "ListByIDs", mock.Anything, mock.Anything)
 }

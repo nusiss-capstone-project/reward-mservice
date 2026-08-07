@@ -35,6 +35,36 @@ func (_m *IssueRecordDao) Create(ctx context.Context, tx *gorm.DB, issueRecord *
 	return r0
 }
 
+// GetByClientRefId provides a mock function with given fields: ctx, clientRefID
+func (_m *IssueRecordDao) GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error) {
+	ret := _m.Called(ctx, clientRefID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByClientRefId")
+	}
+
+	var r0 *model.IssueRecord
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.IssueRecord, error)); ok {
+		return rf(ctx, clientRefID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.IssueRecord); ok {
+		r0 = rf(ctx, clientRefID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.IssueRecord)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, clientRefID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetByID provides a mock function with given fields: ctx, id
 func (_m *IssueRecordDao) GetByID(ctx context.Context, id int64) (*model.IssueRecord, error) {
 	ret := _m.Called(ctx, id)
@@ -65,29 +95,29 @@ func (_m *IssueRecordDao) GetByID(ctx context.Context, id int64) (*model.IssueRe
 	return r0, r1
 }
 
-// GetByClientRefId provides a mock function with given fields: ctx, clientRefID
-func (_m *IssueRecordDao) GetByClientRefId(ctx context.Context, clientRefID string) (*model.IssueRecord, error) {
-	ret := _m.Called(ctx, clientRefID)
+// ListByProjectIDAndUserID provides a mock function with given fields: ctx, projectID, userID
+func (_m *IssueRecordDao) ListByProjectIDAndUserID(ctx context.Context, projectID int64, userID int64) ([]*model.IssueRecord, error) {
+	ret := _m.Called(ctx, projectID, userID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetByClientRefId")
+		panic("no return value specified for ListByProjectIDAndUserID")
 	}
 
-	var r0 *model.IssueRecord
+	var r0 []*model.IssueRecord
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.IssueRecord, error)); ok {
-		return rf(ctx, clientRefID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) ([]*model.IssueRecord, error)); ok {
+		return rf(ctx, projectID, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *model.IssueRecord); ok {
-		r0 = rf(ctx, clientRefID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) []*model.IssueRecord); ok {
+		r0 = rf(ctx, projectID, userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.IssueRecord)
+			r0 = ret.Get(0).([]*model.IssueRecord)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, clientRefID)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = rf(ctx, projectID, userID)
 	} else {
 		r1 = ret.Error(1)
 	}
