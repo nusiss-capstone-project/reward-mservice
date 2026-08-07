@@ -83,6 +83,13 @@ func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
 			errs.LogInputError, "reason", "nil request")
 	}
 
+	log.WithContext(ctx).Infow("reward distribution request processing started",
+		"client_ref_id", request.GetClientRefId(),
+		"user_id", request.GetUserId(),
+		"project_id", request.GetProjectId(),
+		"template_id", request.GetTemplateId(),
+	)
+
 	input, err := parseRewardDistributionRequest(request)
 	if err != nil {
 		return issueRecordErr(ctx, err, errs.LogInputError, "client_ref_id", request.GetClientRefId())
@@ -146,6 +153,28 @@ func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(
 }
 
 func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, rewardRequestID int64) error {
+	log.WithContext(ctx).Infow("reward distribution execute started", "reward_request_id", rewardRequestID)
+
+	err := s.executeRewardDistribution(ctx, rewardRequestID)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrDistributionDeferred) {
+		log.WithContext(ctx).Infow("reward distribution execute deferred",
+			"reward_request_id", rewardRequestID, "error", err)
+		return err
+	}
+	if errors.Is(err, ErrDistributionRetry) {
+		log.WithContext(ctx).Warnw("reward distribution execute will retry",
+			"reward_request_id", rewardRequestID, "error", err)
+		return err
+	}
+	log.WithContext(ctx).Errorw("reward distribution execute failed",
+		"reward_request_id", rewardRequestID, "error", err)
+	return err
+}
+
+func (s *IssueRecordServiceImpl) executeRewardDistribution(ctx context.Context, rewardRequestID int64) error {
 	if rewardRequestID <= 0 {
 		return issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "reward_request_id must be positive"),
 			errs.LogInputError, "reward_request_id", rewardRequestID)
@@ -153,7 +182,6 @@ func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, 
 
 	rewardRequest, err := s.rewardRequestDao.GetByID(ctx, rewardRequestID)
 	if err != nil {
-		log.WithContext(ctx).Errorw("failed to get reward request by id", "reward_request_id", rewardRequestID, "error", err)
 		return err
 	}
 	if rewardRequest == nil {
@@ -161,12 +189,15 @@ func (s *IssueRecordServiceImpl) ExecuteRewardDistribution(ctx context.Context, 
 		return nil
 	}
 	if rewardRequest.Status != model.RewardRequestStatusPending {
+		log.WithContext(ctx).Infow("reward request not pending, skip",
+			"reward_request_id", rewardRequestID,
+			"status", rewardRequest.Status,
+		)
 		return nil
 	}
 
 	existingRecord, err := s.issueRecordDao.GetByClientRefId(ctx, rewardRequest.ClientRefID)
 	if err != nil {
-		log.WithContext(ctx).Errorw("failed to get issue record by client ref id", "client_ref_id", rewardRequest.ClientRefID, "error", err)
 		return err
 	}
 	if existingRecord != nil && existingRecord.IssueStatus != model.IssueRecordStatusPending {
@@ -517,7 +548,14 @@ func (s *IssueRecordServiceImpl) finalizeDistribution(
 		"voucher_id", record.VoucherID,
 		"issue_status", record.IssueStatus,
 	)
-	return s.publishTerminalResult(ctx, rewardRequest, record)
+	if err := s.publishTerminalResult(ctx, rewardRequest, record); err != nil {
+		return issueRecordErr(ctx, err, errs.LogOperationFailed,
+			"reward_request_id", rewardRequest.ID,
+			"voucher_id", record.VoucherID,
+			"client_ref_id", rewardRequest.ClientRefID,
+		)
+	}
+	return nil
 }
 
 func (s *IssueRecordServiceImpl) publishTerminalResult(

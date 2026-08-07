@@ -245,7 +245,13 @@ func (d *ProjectBudgetDaoImpl) ApplyDistributionDeductAvailable(
 		return ret.Error
 	}
 	if ret.RowsAffected == 0 {
-		return errors.New("project budget available amount is insufficient")
+		err := errors.New("project budget available amount is insufficient")
+		log.WithContext(ctx).Errorw("deduct project budget available rejected",
+			"budget_id", budgetID,
+			"amount", amount,
+			"error", err,
+		)
+		return err
 	}
 	return nil
 }

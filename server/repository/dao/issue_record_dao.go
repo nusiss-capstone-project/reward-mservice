@@ -61,6 +61,11 @@ func (d *issueRecordDaoImpl) Save(ctx context.Context, tx *gorm.DB, issueRecord 
 		)
 		return err
 	}
+	log.WithContext(ctx).Infow("issue record saved",
+		"issue_record_id", issueRecord.ID,
+		"voucher_id", issueRecord.VoucherID,
+		"issue_status", issueRecord.IssueStatus,
+	)
 	return nil
 }
 
