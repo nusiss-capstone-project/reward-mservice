@@ -48,12 +48,13 @@ func (s *TemplateServiceImpl) CreateTemplate(ctx context.Context, req *data.Crea
 			errs.LogInputError, "reason", "nil request")
 	}
 
-	input, err := parseTemplateInput(req.VoucherType, req.Unit, req.Type, req.Config)
+	input, err := parseTemplateInput(req.Title, req.VoucherType, req.Unit, req.Type, req.Config)
 	if err != nil {
 		return 0, templateErr(ctx, err, errs.LogInputError)
 	}
 
 	template := &model.Template{
+		Title:       input.title,
 		VoucherType: input.voucherType,
 		Unit:        input.unit,
 		Type:        input.templateType,
@@ -93,12 +94,16 @@ func (s *TemplateServiceImpl) UpdateTemplate(
 		return nil, templateErr(ctx, err, errs.LogInputError, "template_id", templateID)
 	}
 
-	if err := s.templateDao.Update(ctx, templateID, config); err != nil {
+	title := strings.TrimSpace(req.Title)
+	if err := s.templateDao.Update(ctx, templateID, title, config); err != nil {
 		return nil, templateErr(ctx, errs.Wrap(errs.CodeInternalError, err),
 			errs.LogOperationFailed, "template_id", templateID)
 	}
 
 	template.Config = config
+	if title != "" {
+		template.Title = title
+	}
 	log.WithContext(ctx).Infof("template config updated: id=%d type=%s", templateID, template.Type)
 	return toTemplateVO(template)
 }
@@ -196,13 +201,18 @@ func (s *TemplateServiceImpl) loadEditableTemplate(ctx context.Context, template
 }
 
 type templateInput struct {
+	title        string
 	voucherType  string
 	unit         string
 	templateType string
 	config       []byte
 }
 
-func parseTemplateInput(voucherType, unit, templateType string, config json.RawMessage) (*templateInput, error) {
+func parseTemplateInput(title, voucherType, unit, templateType string, config json.RawMessage) (*templateInput, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "title is required")
+	}
 	validatedVoucherType, err := util.ValidateVoucherType(voucherType)
 	if err != nil {
 		return nil, err
@@ -224,6 +234,7 @@ func parseTemplateInput(voucherType, unit, templateType string, config json.RawM
 		return nil, err
 	}
 	return &templateInput{
+		title:        title,
 		voucherType:  validatedVoucherType,
 		unit:         validatedUnit,
 		templateType: normalizedType,
@@ -349,6 +360,7 @@ func toTemplateVO(template *model.Template) (*data.TemplateVO, error) {
 	}
 	return &data.TemplateVO{
 		ID:          template.ID,
+		Title:       template.Title,
 		VoucherType: template.VoucherType,
 		Unit:        template.Unit,
 		Type:        template.Type,

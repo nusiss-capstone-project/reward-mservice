@@ -49,12 +49,13 @@ func CreateFinanceDoc(c *gin.Context) {
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param size query int false "Page size" default(20)
+// @Param status query string false "Status filter"
 // @Success 200 {object} data.BaseResponse{data=data.PageResult}
 // @Failure 400 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
 // @Router /reward-ms/v1/admin/finance-docs [get]
 func ListFinanceDocs(c *gin.Context) {
-	query := data.PageQuery{}
+	query := data.FinanceDocListQuery{}
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, data.BaseResponse{
 			Code:   errs.CodeInvalidRequest,
@@ -64,7 +65,7 @@ func ListFinanceDocs(c *gin.Context) {
 	}
 	page, size := query.Normalize()
 
-	result, err := service.GetFinanceDocService().ListFinanceDocs(c.Request.Context(), page, size)
+	result, err := service.GetFinanceDocService().ListFinanceDocs(c.Request.Context(), page, size, query.Status)
 	if err != nil {
 		WriteError(c, err)
 		return

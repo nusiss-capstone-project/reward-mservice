@@ -14,7 +14,7 @@ type FinanceDocDao interface {
 	Create(ctx context.Context, doc *model.FinanceDoc) error
 	GetByDocID(ctx context.Context, docID string) (*model.FinanceDoc, error)
 	ExistsByProjectID(ctx context.Context, projectID int64) (bool, error)
-	List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error)
+	List(ctx context.Context, page, size int, status, creator string) ([]*model.FinanceDoc, int64, error)
 	UpdateStatus(ctx context.Context, docID, status, remark string) error
 	UpdateContent(ctx context.Context, docID, description string, applicationDetail []byte) error
 }
@@ -68,9 +68,15 @@ func (d *FinanceDocDaoImpl) ExistsByProjectID(ctx context.Context, projectID int
 	return count > 0, nil
 }
 
-func (d *FinanceDocDaoImpl) List(ctx context.Context, page, size int) ([]*model.FinanceDoc, int64, error) {
+func (d *FinanceDocDaoImpl) List(ctx context.Context, page, size int, status, creator string) ([]*model.FinanceDoc, int64, error) {
 	var total int64
 	query := d.db.WithContext(ctx).Model(&model.FinanceDoc{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if creator != "" {
+		query = query.Where("creator = ?", creator)
+	}
 	if err := query.Count(&total).Error; err != nil {
 		log.WithContext(ctx).Errorf("failed to count finance docs: %v", err)
 		return nil, 0, err

@@ -110,17 +110,17 @@ func (_m *TemplateDao) List(ctx context.Context, page int, size int, status stri
 	return r0, r1, r2
 }
 
-// Update provides a mock function with given fields: ctx, id, config
-func (_m *TemplateDao) Update(ctx context.Context, id int64, config []byte) error {
-	ret := _m.Called(ctx, id, config)
+// Update provides a mock function with given fields: ctx, id, title, config
+func (_m *TemplateDao) Update(ctx context.Context, id int64, title string, config []byte) error {
+	ret := _m.Called(ctx, id, title, config)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, []byte) error); ok {
-		r0 = rf(ctx, id, config)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string, []byte) error); ok {
+		r0 = rf(ctx, id, title, config)
 	} else {
 		r0 = ret.Error(0)
 	}

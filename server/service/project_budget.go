@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
+	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository"
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/dao"
@@ -17,12 +18,16 @@ import (
 
 type ProjectBudgetService interface {
 	InitFromApprovedDoc(ctx context.Context, docID string) error
+	ListByFinanceDocID(ctx context.Context, docID string) ([]*data.BudgetVO, error)
+	ListIssueBudgetByIssueRequestID(ctx context.Context, issueRequestID int64) ([]*data.BudgetVO, error)
 }
 
 type ProjectBudgetServiceImpl struct {
 	financeDocDao    dao.FinanceDocDao
 	paymentConfigDao dao.PaymentConfigDao
 	projectBudgetDao dao.ProjectBudgetDao
+	issueBudgetDao   dao.IssueBudgetDao
+	issueRequestDao  dao.IssueRequestDao
 	txBeginner       repository.TxBeginner
 }
 
@@ -37,6 +42,8 @@ func GetProjectBudgetService() ProjectBudgetService {
 			financeDocDao:    dao.GetFinanceDocDao(),
 			paymentConfigDao: dao.GetPaymentConfigDao(),
 			projectBudgetDao: dao.GetProjectBudgetDao(),
+			issueBudgetDao:   dao.GetIssueBudgetDao(),
+			issueRequestDao:  dao.GetIssueRequestDao(),
 			txBeginner:       repository.DB,
 		}
 	})
@@ -91,4 +98,78 @@ func (s *ProjectBudgetServiceImpl) InitFromApprovedDoc(ctx context.Context, docI
 
 	logger.Infof("project budget created: doc_id=%s project_id=%d items=%d", docID, doc.ProjectID, len(items))
 	return nil
+}
+
+func (s *ProjectBudgetServiceImpl) ListByFinanceDocID(ctx context.Context, docID string) ([]*data.BudgetVO, error) {
+	docID = strings.TrimSpace(docID)
+	if docID == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgDocIDRequired)
+	}
+
+	doc, err := s.financeDocDao.GetByDocID(ctx, docID)
+	if err != nil {
+		log.WithContext(ctx).Errorw("load finance doc for project budgets failed", "doc_id", docID, "error", err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if doc == nil {
+		return nil, errs.New(errs.CodeFinanceDocNotFound, "")
+	}
+
+	budgets, err := s.projectBudgetDao.ListByFinanceDocID(ctx, docID)
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	items := make([]*data.BudgetVO, 0, len(budgets))
+	for _, budget := range budgets {
+		items = append(items, toBudgetVOFromProject(budget))
+	}
+	return items, nil
+}
+
+func (s *ProjectBudgetServiceImpl) ListIssueBudgetByIssueRequestID(
+	ctx context.Context,
+	issueRequestID int64,
+) ([]*data.BudgetVO, error) {
+	if issueRequestID <= 0 {
+		return nil, errs.New(errs.CodeInvalidRequest, "issue_request_id must be positive")
+	}
+
+	request, err := s.issueRequestDao.GetByID(ctx, issueRequestID)
+	if err != nil {
+		log.WithContext(ctx).Errorw("load issue request for issue budget failed",
+			"issue_request_id", issueRequestID, "error", err)
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if request == nil {
+		return nil, errs.New(errs.CodeIssueRequestNotFound, "")
+	}
+
+	budget, err := s.issueBudgetDao.GetByIssueRequestID(ctx, issueRequestID)
+	if err != nil {
+		return nil, errs.Wrap(errs.CodeInternalError, err)
+	}
+	if budget == nil {
+		return []*data.BudgetVO{}, nil
+	}
+	return []*data.BudgetVO{toBudgetVOFromIssue(budget)}, nil
+}
+
+func toBudgetVOFromProject(budget *model.ProjectBudget) *data.BudgetVO {
+	return &data.BudgetVO{
+		VoucherType:     budget.VoucherType,
+		Unit:            budget.Unit,
+		AvailableAmount: budget.AvailableAmount,
+		TotalAmount:     budget.TotalAmount,
+		IssuedAmount:    budget.IssuedAmount,
+	}
+}
+
+func toBudgetVOFromIssue(budget *model.IssueBudget) *data.BudgetVO {
+	return &data.BudgetVO{
+		VoucherType:     budget.VoucherType,
+		Unit:            budget.Unit,
+		AvailableAmount: budget.AvailableAmount,
+		TotalAmount:     budget.TotalAmount,
+		IssuedAmount:    budget.IssuedAmount,
+	}
 }

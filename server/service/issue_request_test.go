@@ -56,7 +56,7 @@ func TestCreateIssueRequestSuccess(t *testing.T) {
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("Create", mock.Anything, mock.AnythingOfType("*model.IssueRequest")).Return(nil).Once()
 
-	result, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	result, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Amount:      "100",
@@ -80,7 +80,7 @@ func TestCreateIssueRequestInsufficientAvailable(t *testing.T) {
 	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(&model.ProjectBudget{AvailableAmount: "50"}, nil).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Amount:      "100",
@@ -202,10 +202,10 @@ func TestListIssueRequestsByDocID(t *testing.T) {
 
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
-	issueRequestDao.On("ListByProjectID", mock.Anything, int64(1), 1, 20).
+	issueRequestDao.On("ListByProjectID", mock.Anything, int64(1), 1, 20, "", "").
 		Return([]*model.IssueRequest{{ID: 1, ProjectID: 1, Amount: "10", RequestStatus: model.IssueRequestStatusDraft}}, int64(1), nil).Once()
 
-	result, err := svc.ListIssueRequestsByDocID(context.Background(), "doc-1", 1, 20)
+	result, err := svc.ListIssueRequestsByDocID(adminAuthCtx(), "doc-1", 1, 20, "")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), result.Total)
 }
@@ -377,7 +377,7 @@ func TestListIssueRequestsInvalidPagination(t *testing.T) {
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 
-	_, err := svc.ListIssueRequestsByDocID(context.Background(), "doc-1", 0, 20)
+	_, err := svc.ListIssueRequestsByDocID(adminAuthCtx(), "doc-1", 0, 20, "")
 	assert.Error(t, err)
 	var appErr *errs.AppError
 	assert.ErrorAs(t, err, &appErr)
@@ -392,7 +392,7 @@ func TestCreateIssueRequestInvalidExpenseType(t *testing.T) {
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Amount:      "10",
@@ -502,7 +502,7 @@ func TestCreateIssueRequestNilRequest(t *testing.T) {
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", ProjectID: 1, Status: model.FinanceDocStatusApproved}, nil).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", nil)
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", nil)
 	assert.Error(t, err)
 }
 
@@ -514,7 +514,7 @@ func TestCreateIssueRequestDocNotApproved(t *testing.T) {
 	financeDocDao.On("GetByDocID", mock.Anything, "doc-1").
 		Return(&model.FinanceDoc{DocID: "doc-1", Status: model.FinanceDocStatusDraft}, nil).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
@@ -612,7 +612,7 @@ func TestCreateIssueRequestBudgetNotFound(t *testing.T) {
 	projectBudgetDao.On("GetByProjectIDVoucherTypeUnit", mock.Anything, int64(1), util.VoucherTypeCrypto, util.UnitCryptoUSDT).
 		Return(nil, nil).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
@@ -687,7 +687,7 @@ func TestCreateIssueRequestCreateFailed(t *testing.T) {
 		Return(&model.ProjectBudget{AvailableAmount: "100"}, nil).Once()
 	issueRequestDao.On("Create", mock.Anything, mock.AnythingOfType("*model.IssueRequest")).Return(assert.AnError).Once()
 
-	_, err := svc.CreateIssueRequest(context.Background(), "doc-1", &data.CreateIssueRequestRequest{
+	_, err := svc.CreateIssueRequest(campaignOpsAuthCtx(9), "doc-1", &data.CreateIssueRequestRequest{
 		VoucherType: util.VoucherTypeCrypto, Unit: util.UnitCryptoUSDT, Amount: "10", ExpenseType: "REWARD",
 	})
 	assert.Error(t, err)
@@ -714,7 +714,7 @@ func TestListIssueRequestsEmptyDocID(t *testing.T) {
 	initServiceTestEnv()
 	svc := newIssueRequestService(new(mocks.FinanceDocDao), new(mocks.ProjectBudgetDao), new(mocks.IssueRequestDao), new(mocks.IssueBudgetDao), new(mockIssueRequestUpdatedProducer))
 
-	_, err := svc.ListIssueRequestsByDocID(context.Background(), " ", 1, 20)
+	_, err := svc.ListIssueRequestsByDocID(adminAuthCtx(), " ", 1, 20, "")
 	assert.Error(t, err)
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nusiss-capstone-project/reward-mservice/common/rewardpb"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
+	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/reward-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/reward-mservice/server/log"
 	"github.com/nusiss-capstone-project/reward-mservice/server/proxy"
@@ -34,6 +35,7 @@ var (
 type IssueRecordService interface {
 	ProcessVoucherIssueRequest(ctx context.Context, request *rewardpb.RewardDistributionRequest) error
 	ExecuteRewardDistribution(ctx context.Context, rewardRequestID int64) error
+	ListIssueRecordsByProjectAndUser(ctx context.Context, projectID, userID int64) ([]*data.IssueRecordVO, error)
 }
 
 type IssueRecordServiceImpl struct {
@@ -72,6 +74,39 @@ func GetIssueRecordService() IssueRecordService {
 		}
 	})
 	return issueRecordServiceInst
+}
+
+func (s *IssueRecordServiceImpl) ListIssueRecordsByProjectAndUser(
+	ctx context.Context,
+	projectID, userID int64,
+) ([]*data.IssueRecordVO, error) {
+	if projectID <= 0 {
+		return nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "project_id must be positive"),
+			errs.LogInputError, "project_id", projectID)
+	}
+	if userID <= 0 {
+		return nil, issueRecordErr(ctx, errs.New(errs.CodeInvalidRequest, "user_id must be positive"),
+			errs.LogInputError, "user_id", userID)
+	}
+
+	records, err := s.issueRecordDao.ListByProjectIDAndUserID(ctx, projectID, userID)
+	if err != nil {
+		return nil, issueRecordErr(ctx, errs.Wrap(errs.CodeInternalError, err),
+			errs.LogOperationFailed, "project_id", projectID, "user_id", userID)
+	}
+
+	items := make([]*data.IssueRecordVO, 0, len(records))
+	for _, record := range records {
+		items = append(items, &data.IssueRecordVO{
+			VoucherID:    record.VoucherID,
+			VoucherType:  record.VoucherType,
+			Unit:         record.Unit,
+			RewardAmount: record.RewardAmount,
+			Status:       record.IssueStatus,
+			CreatedAt:    util.FormatDateTime(record.CreatedAt),
+		})
+	}
+	return items, nil
 }
 
 func (s *IssueRecordServiceImpl) ProcessVoucherIssueRequest(

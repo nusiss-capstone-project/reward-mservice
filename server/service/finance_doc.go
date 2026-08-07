@@ -60,7 +60,7 @@ func (s *PaymentConfigServiceImpl) ListPaymentConfigs(ctx context.Context) ([]*d
 
 type FinanceDocService interface {
 	CreateFinanceDoc(ctx context.Context, req *data.CreateFinanceDocRequest) (string, error)
-	ListFinanceDocs(ctx context.Context, page, size int) (*data.PageResult, error)
+	ListFinanceDocs(ctx context.Context, page, size int, status string) (*data.PageResult, error)
 	GetFinanceDocDetail(ctx context.Context, docID string) (*data.FinanceDocVO, error)
 	UpdateFinanceDoc(ctx context.Context, docID string, req *data.UpdateFinanceDocContentRequest) (*data.FinanceDocVO, error)
 	UpdateFinanceDocStatus(ctx context.Context, docID string, req *data.UpdateFinanceDocRequest) (*data.UpdateFinanceDocResponse, error)
@@ -126,9 +126,9 @@ func (s *FinanceDocServiceImpl) CreateFinanceDoc(ctx context.Context, req *data.
 		return "", err
 	}
 
-	creator := strings.TrimSpace(req.Creator)
-	if creator == "" {
-		creator = defaultCreator
+	creator, err := util.CurrentUserIDString(ctx)
+	if err != nil {
+		return "", err
 	}
 
 	detailJSON, err := json.Marshal(detailItems)
@@ -154,13 +154,19 @@ func (s *FinanceDocServiceImpl) CreateFinanceDoc(ctx context.Context, req *data.
 	return docID, nil
 }
 
-func (s *FinanceDocServiceImpl) ListFinanceDocs(ctx context.Context, page, size int) (*data.PageResult, error) {
+func (s *FinanceDocServiceImpl) ListFinanceDocs(ctx context.Context, page, size int, status string) (*data.PageResult, error) {
 	logger := log.WithContext(ctx)
 	if page <= 0 || size <= 0 {
 		return nil, errs.New(errs.CodeInvalidPagination, "")
 	}
 
-	docs, total, err := s.financeDocDao.List(ctx, page, size)
+	creator, err := util.ListCreatorFilter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	status = strings.TrimSpace(status)
+
+	docs, total, err := s.financeDocDao.List(ctx, page, size, status, creator)
 	if err != nil {
 		logger.Errorf("list finance docs failed: %v", err)
 		return nil, errs.Wrap(errs.CodeInternalError, err)
@@ -381,7 +387,6 @@ func (s *FinanceDocServiceImpl) toFinanceDocVO(
 		Project:           projectVO,
 		Description:       doc.Description,
 		ApplicationDetail: detail,
-		Creator:           doc.Creator,
 		Status:            doc.Status,
 		Remark:            doc.Remark,
 		CreatedAt:         util.FormatDateTime(doc.CreatedAt),

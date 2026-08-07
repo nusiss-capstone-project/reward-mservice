@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	commonauth "github.com/nusiss-capstone-project/identity-mservice/common/auth"
 	"github.com/nusiss-capstone-project/reward-mservice/server/config"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
 	"github.com/nusiss-capstone-project/reward-mservice/server/http/data"
@@ -23,6 +24,21 @@ func initServiceTestEnv() {
 		},
 	}
 	log.InitLogger()
+}
+
+func authCtx(userID int64, role string) context.Context {
+	return commonauth.WithUser(context.Background(), &commonauth.User{
+		InternalUserID: userID,
+		Role:           role,
+	})
+}
+
+func adminAuthCtx() context.Context {
+	return authCtx(1, commonauth.RoleAdmin)
+}
+
+func campaignOpsAuthCtx(userID int64) context.Context {
+	return authCtx(userID, commonauth.RoleCampaignOps)
 }
 
 func TestGetProjectServiceSingleton(t *testing.T) {

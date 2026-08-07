@@ -15,7 +15,7 @@ type TemplateDao interface {
 	Create(ctx context.Context, template *model.Template) (int64, error)
 	GetByID(ctx context.Context, id int64) (*model.Template, error)
 	List(ctx context.Context, page, size int, status string) ([]*model.Template, int64, error)
-	Update(ctx context.Context, id int64, config []byte) error
+	Update(ctx context.Context, id int64, title string, config []byte) error
 	UpdateStatus(ctx context.Context, id int64, fromStatus, toStatus string) error
 }
 
@@ -76,11 +76,17 @@ func (d *TemplateDaoImpl) List(ctx context.Context, page, size int, status strin
 	return templates, total, nil
 }
 
-func (d *TemplateDaoImpl) Update(ctx context.Context, id int64, config []byte) error {
+func (d *TemplateDaoImpl) Update(ctx context.Context, id int64, title string, config []byte) error {
+	updates := map[string]interface{}{
+		"config": config,
+	}
+	if title != "" {
+		updates["title"] = title
+	}
 	if err := d.db.WithContext(ctx).Model(&model.Template{}).
 		Where("id = ?", id).
-		Update("config", config).Error; err != nil {
-		log.WithContext(ctx).Errorf("failed to update template config: %v", err)
+		Updates(updates).Error; err != nil {
+		log.WithContext(ctx).Errorf("failed to update template: %v", err)
 		return err
 	}
 	return nil

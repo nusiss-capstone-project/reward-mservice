@@ -32,6 +32,7 @@ func TestCreateTemplateFixedSuccess(t *testing.T) {
 	})).Return(int64(1), nil).Once()
 
 	id, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "fix",
@@ -51,6 +52,7 @@ func TestCreateTemplateDynamicSuccess(t *testing.T) {
 	})).Return(int64(2), nil).Once()
 
 	id, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "dynamic",
@@ -68,6 +70,7 @@ func TestCreateTemplateFixedNumericAmount(t *testing.T) {
 	templateDao.On("Create", mock.Anything, mock.AnythingOfType("*model.Template")).Return(int64(3), nil).Once()
 
 	id, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -82,6 +85,7 @@ func TestCreateTemplateInvalidType(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "unknown",
@@ -98,6 +102,7 @@ func TestCreateTemplateDynamicMissingBaseMetric(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "DYNAMIC",
@@ -122,7 +127,7 @@ func TestUpdateTemplateSuccess(t *testing.T) {
 	}
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).Return(template, nil).Once()
-	templateDao.On("Update", mock.Anything, int64(1), mock.AnythingOfType("[]uint8")).Return(nil).Once()
+	templateDao.On("Update", mock.Anything, int64(1), mock.Anything, mock.AnythingOfType("[]uint8")).Return(nil).Once()
 
 	vo, err := svc.UpdateTemplate(context.Background(), 1, &data.UpdateTemplateRequest{
 		Config: json.RawMessage(`{"amount":"20"}`),
@@ -244,6 +249,7 @@ func TestCreateTemplateCreateFailed(t *testing.T) {
 		Return(int64(0), assert.AnError).Once()
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -257,6 +263,7 @@ func TestCreateTemplateEmptyConfig(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -269,6 +276,7 @@ func TestCreateTemplateInvalidAmount(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -282,6 +290,7 @@ func TestCreateTemplateDynamicInvalidRate(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "DYNAMIC",
@@ -295,6 +304,7 @@ func TestCreateTemplateDynamicInvalidCap(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "DYNAMIC",
@@ -369,7 +379,7 @@ func TestUpdateTemplateUpdateFailed(t *testing.T) {
 
 	templateDao.On("GetByID", mock.Anything, int64(1)).
 		Return(&model.Template{ID: 1, Type: model.TemplateTypeFixed, Status: model.TemplateStatusDraft}, nil).Once()
-	templateDao.On("Update", mock.Anything, int64(1), mock.AnythingOfType("[]uint8")).
+	templateDao.On("Update", mock.Anything, int64(1), mock.Anything, mock.AnythingOfType("[]uint8")).
 		Return(assert.AnError).Once()
 
 	_, err := svc.UpdateTemplate(context.Background(), 1, &data.UpdateTemplateRequest{
@@ -390,7 +400,7 @@ func TestUpdateTemplateDynamicSuccess(t *testing.T) {
 		Config: []byte(`{"base_metric":"old","rate":0.1}`),
 	}
 	templateDao.On("GetByID", mock.Anything, int64(1)).Return(template, nil).Once()
-	templateDao.On("Update", mock.Anything, int64(1), mock.AnythingOfType("[]uint8")).Return(nil).Once()
+	templateDao.On("Update", mock.Anything, int64(1), mock.Anything, mock.AnythingOfType("[]uint8")).Return(nil).Once()
 
 	vo, err := svc.UpdateTemplate(context.Background(), 1, &data.UpdateTemplateRequest{
 		Config: json.RawMessage(`{"base_metric":"net_deposit","rate":0.2,"cap":"50"}`),
@@ -543,6 +553,7 @@ func TestCreateTemplateInvalidVoucherType(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: "BAD",
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -556,6 +567,7 @@ func TestCreateTemplateFixedMissingAmount(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -582,6 +594,7 @@ func TestCreateTemplateFixedRejectsDynamicFields(t *testing.T) {
 	svc := newTemplateService(new(mocks.TemplateDao))
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",
@@ -604,6 +617,7 @@ func TestCreateTemplateFixedStoresOnlyAmount(t *testing.T) {
 	})).Return(int64(1), nil).Once()
 
 	_, err := svc.CreateTemplate(context.Background(), &data.CreateTemplateRequest{
+		Title:       "test",
 		VoucherType: util.VoucherTypeCrypto,
 		Unit:        util.UnitCryptoUSDT,
 		Type:        "FIXED",

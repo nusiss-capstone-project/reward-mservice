@@ -289,6 +289,36 @@ func (_m *ProjectBudgetDao) HasAvailableForDistribution(ctx context.Context, pro
 	return r0, r1
 }
 
+// ListByFinanceDocID provides a mock function with given fields: ctx, docID
+func (_m *ProjectBudgetDao) ListByFinanceDocID(ctx context.Context, docID string) ([]*model.ProjectBudget, error) {
+	ret := _m.Called(ctx, docID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByFinanceDocID")
+	}
+
+	var r0 []*model.ProjectBudget
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]*model.ProjectBudget, error)); ok {
+		return rf(ctx, docID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*model.ProjectBudget); ok {
+		r0 = rf(ctx, docID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*model.ProjectBudget)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, docID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LockByID provides a mock function with given fields: ctx, tx, budgetID
 func (_m *ProjectBudgetDao) LockByID(ctx context.Context, tx *gorm.DB, budgetID int64) (*model.ProjectBudget, error) {
 	ret := _m.Called(ctx, tx, budgetID)

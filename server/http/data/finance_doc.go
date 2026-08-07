@@ -9,7 +9,6 @@ type CreateFinanceDocRequest struct {
 	ProjectID         int64                     `json:"project_id" binding:"required"`
 	Description       string                    `json:"description"`
 	ApplicationDetail []ApplicationDetailItemVO `json:"application_detail" binding:"required,min=1,dive"`
-	Creator           string                    `json:"creator"`
 }
 
 type CreateFinanceDocResponse struct {
@@ -22,7 +21,6 @@ type FinanceDocVO struct {
 	Project           *ProjectVO                `json:"project,omitempty"`
 	Description       string                    `json:"description"`
 	ApplicationDetail []ApplicationDetailItemVO `json:"application_detail"`
-	Creator           string                    `json:"creator"`
 	Status            string                    `json:"status"`
 	Remark            string                    `json:"remark"`
 	CreatedAt         string                    `json:"created_at,omitempty"`

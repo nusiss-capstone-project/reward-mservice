@@ -15,6 +15,7 @@ import (
 type ProjectBudgetDao interface {
 	BatchCreate(ctx context.Context, tx *gorm.DB, budgets []*model.ProjectBudget) error
 	CountByFinanceDocID(ctx context.Context, docID string) (int64, error)
+	ListByFinanceDocID(ctx context.Context, docID string) ([]*model.ProjectBudget, error)
 	GetByDocIDVoucherTypeUnit(ctx context.Context, docID, voucherType, unit string) (*model.ProjectBudget, error)
 	GetByProjectIDVoucherTypeUnit(ctx context.Context, projectID int64, voucherType, unit string) (*model.ProjectBudget, error)
 	GetByID(ctx context.Context, id int64) (*model.ProjectBudget, error)
@@ -70,6 +71,22 @@ func (d *ProjectBudgetDaoImpl) CountByFinanceDocID(ctx context.Context, docID st
 		return 0, err
 	}
 	return count, nil
+}
+
+func (d *ProjectBudgetDaoImpl) ListByFinanceDocID(ctx context.Context, docID string) ([]*model.ProjectBudget, error) {
+	var budgets []*model.ProjectBudget
+	err := d.db.WithContext(ctx).
+		Where("finance_doc_id = ?", docID).
+		Order("id ASC").
+		Find(&budgets).Error
+	if err != nil {
+		log.WithContext(ctx).Errorw("list project budgets by finance doc failed",
+			"finance_doc_id", docID,
+			"error", err,
+		)
+		return nil, err
+	}
+	return budgets, nil
 }
 
 func (d *ProjectBudgetDaoImpl) GetByDocIDVoucherTypeUnit(

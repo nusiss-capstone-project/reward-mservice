@@ -79,6 +79,13 @@ func NewRouter() *gin.Engine {
 			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/submission", campaignOps, api.SubmitIssueRequestForApproval)
 			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/approval", financeAdmin, api.ApproveIssueRequest)
 
+			// budgets view -> campaign_ops + finance_admin
+			adminGroup.GET("/finance-docs/:doc_id/project-budgets", campaignOpsOrFinanceAdmin, api.ListProjectBudgetsByFinanceDoc)
+			adminGroup.GET("/issue-requests/:issue_request_id/issue-budgets", campaignOpsOrFinanceAdmin, api.ListIssueBudgetsByIssueRequest)
+
+			// issue records view -> campaign_ops
+			adminGroup.GET("/issue-records/projects/:project_id/users/:user_id", campaignOps, api.ListAdminIssueRecords)
+
 			// payment-configs view -> both
 			adminGroup.GET("/payment-configs", campaignOpsOrFinanceAdmin, api.ListPaymentConfigs)
 
@@ -92,7 +99,7 @@ func NewRouter() *gin.Engine {
 		webGroup := basicGroup.Group("/web")
 		webGroup.Use(commonauth.RequireUser())
 		{
-			// user-facing APIs
+			webGroup.GET("/issue-records/projects/:project_id", api.ListWebIssueRecords)
 		}
 	}
 	return r

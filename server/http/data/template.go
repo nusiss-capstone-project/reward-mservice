@@ -13,6 +13,7 @@ type DynamicTemplateConfigVO struct {
 }
 
 type CreateTemplateRequest struct {
+	Title       string          `json:"title" binding:"required" example:"Welcome Bonus"`
 	VoucherType string          `json:"voucher_type" binding:"required" example:"CRYPTO"`
 	Unit        string          `json:"unit" binding:"required" example:"CRYPTO_USDT"`
 	Type        string          `json:"type" binding:"required" enums:"FIXED,DYNAMIC" example:"FIXED"`
@@ -24,6 +25,7 @@ type CreateTemplateResponse struct {
 }
 
 type UpdateTemplateRequest struct {
+	Title  string          `json:"title" example:"Welcome Bonus"`
 	Config json.RawMessage `json:"config" binding:"required" swaggertype:"string" example:"{\"amount\":\"100.00\"}"`
 }
 
@@ -34,6 +36,7 @@ type PublishTemplateResponse struct {
 
 type TemplateVO struct {
 	ID          int64       `json:"id" example:"1"`
+	Title       string      `json:"title" example:"Welcome Bonus"`
 	VoucherType string      `json:"voucher_type" example:"CRYPTO"`
 	Unit        string      `json:"unit" example:"CRYPTO_USDT"`
 	Type        string      `json:"type" enums:"FIXED,DYNAMIC" example:"FIXED"`

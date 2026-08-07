@@ -17,7 +17,7 @@ type IssueRequestDao interface {
 	Create(ctx context.Context, request *model.IssueRequest) error
 	GetByID(ctx context.Context, id int64) (*model.IssueRequest, error)
 	GetByIDForUpdate(ctx context.Context, tx *gorm.DB, id int64) (*model.IssueRequest, error)
-	ListByProjectID(ctx context.Context, projectID int64, page, size int) ([]*model.IssueRequest, int64, error)
+	ListByProjectID(ctx context.Context, projectID int64, page, size int, status, creator string) ([]*model.IssueRequest, int64, error)
 	ListDistinctProjectIDsByStatus(ctx context.Context, status string) ([]int64, error)
 	UpdateFields(ctx context.Context, id int64, voucherType, unit, amount, remark string) error
 	UpdateStatusInTx(ctx context.Context, tx *gorm.DB, id int64, fromStatus, toStatus, remark string) error
@@ -85,8 +85,15 @@ func (d *IssueRequestDaoImpl) ListByProjectID(
 	ctx context.Context,
 	projectID int64,
 	page, size int,
+	status, creator string,
 ) ([]*model.IssueRequest, int64, error) {
 	query := d.db.WithContext(ctx).Model(&model.IssueRequest{}).Where("project_id = ?", projectID)
+	if status != "" {
+		query = query.Where("request_status = ?", status)
+	}
+	if creator != "" {
+		query = query.Where("creator = ?", creator)
+	}
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
