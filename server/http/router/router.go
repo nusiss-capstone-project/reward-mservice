@@ -25,7 +25,6 @@ func NewRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(log.RecoveryMiddleware())
 	r.Use(otelgin.Middleware(data.ServiceName))
-	r.Use(log.HTTPObservabilityMiddleware())
 	r.Use(corsMiddleware())
 
 	campaignOps := commonauth.RequireRole([]string{
@@ -40,66 +39,73 @@ func NewRouter() *gin.Engine {
 
 	basicGroup := r.Group(serviceURIPrefix)
 	{
-		basicGroup.GET("/swagger/*any", gs.WrapHandler(
-			swaggerFiles.Handler,
-			gs.URL("/reward-ms/v1/swagger/doc.json"),
-		))
+		// High-frequency / non-business routes: no HTTP access log.
 		basicGroup.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"message": "pong",
 			})
 		})
-		basicGroup.POST("/items", api.CreateItem)
-		basicGroup.GET("/items/:item_id", api.GetItems)
+		basicGroup.GET("/swagger/*any", gs.WrapHandler(
+			swaggerFiles.Handler,
+			gs.URL("/reward-ms/v1/swagger/doc.json"),
+		))
 
-		adminGroup := basicGroup.Group("/admin")
+		// Business routes: enable request access logging.
+		apiGroup := basicGroup.Group("")
+		apiGroup.Use(log.HTTPObservabilityMiddleware())
 		{
-			// project manage -> campaign_ops; project view -> campaign_ops + finance_admin
-			adminGroup.POST("/projects", campaignOps, api.CreateProject)
-			adminGroup.GET("/projects", campaignOpsOrFinanceAdmin, api.ListProjects)
-			adminGroup.GET("/projects/ongoing", campaignOps, api.ListProjectsWithOngoingIssueRequest)
+			apiGroup.POST("/items", api.CreateItem)
+			apiGroup.GET("/items/:item_id", api.GetItems)
 
-			// finance_doc edit -> campaign_ops; approval -> finance_admin; view -> both
-			adminGroup.POST("/finance-docs", campaignOps, api.CreateFinanceDoc)
-			adminGroup.GET("/finance-docs", campaignOpsOrFinanceAdmin, api.ListFinanceDocs)
-			adminGroup.GET("/finance-docs/:doc_id", campaignOpsOrFinanceAdmin, api.GetFinanceDocDetail)
-			adminGroup.PUT("/finance-docs/:doc_id", campaignOps, api.UpdateFinanceDoc)
-			adminGroup.PATCH("/finance-docs/:doc_id/submission", campaignOps, api.SubmitFinanceDocForApproval)
-			adminGroup.PATCH("/finance-docs/:doc_id/approval", financeAdmin, api.ApproveFinanceDoc)
+			adminGroup := apiGroup.Group("/admin")
+			{
+				// project manage -> campaign_ops; project view -> campaign_ops + finance_admin
+				adminGroup.POST("/projects", campaignOps, api.CreateProject)
+				adminGroup.GET("/projects", campaignOpsOrFinanceAdmin, api.ListProjects)
+				adminGroup.GET("/projects/ongoing", campaignOps, api.ListProjectsWithOngoingIssueRequest)
 
-			// finance_payment -> finance_admin
-			adminGroup.POST("/finance-docs/:doc_id/finance-payments", financeAdmin, api.CreateFinancePayment)
-			adminGroup.GET("/finance-docs/:doc_id/finance-payments", financeAdmin, api.GetFinancePaymentListByDocID)
-			adminGroup.GET("/finance-docs/:doc_id/finance-payments/:payment_id", financeAdmin, api.GetFinancePayment)
+				// finance_doc edit -> campaign_ops; approval -> finance_admin; view -> both
+				adminGroup.POST("/finance-docs", campaignOps, api.CreateFinanceDoc)
+				adminGroup.GET("/finance-docs", campaignOpsOrFinanceAdmin, api.ListFinanceDocs)
+				adminGroup.GET("/finance-docs/:doc_id", campaignOpsOrFinanceAdmin, api.GetFinanceDocDetail)
+				adminGroup.PUT("/finance-docs/:doc_id", campaignOps, api.UpdateFinanceDoc)
+				adminGroup.PATCH("/finance-docs/:doc_id/submission", campaignOps, api.SubmitFinanceDocForApproval)
+				adminGroup.PATCH("/finance-docs/:doc_id/approval", financeAdmin, api.ApproveFinanceDoc)
 
-			// issue_request edit/approve -> campaign_ops; view -> both
-			adminGroup.POST("/finance-docs/:doc_id/issue-requests", campaignOps, api.CreateIssueRequest)
-			adminGroup.GET("/finance-docs/:doc_id/issue-requests", campaignOpsOrFinanceAdmin, api.ListIssueRequestsByDocID)
-			adminGroup.PUT("/finance-docs/:doc_id/issue-requests/:issue_request_id", campaignOps, api.UpdateIssueRequest)
-			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/submission", campaignOps, api.SubmitIssueRequestForApproval)
-			adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/approval", financeAdmin, api.ApproveIssueRequest)
+				// finance_payment -> finance_admin
+				adminGroup.POST("/finance-docs/:doc_id/finance-payments", financeAdmin, api.CreateFinancePayment)
+				adminGroup.GET("/finance-docs/:doc_id/finance-payments", financeAdmin, api.GetFinancePaymentListByDocID)
+				adminGroup.GET("/finance-docs/:doc_id/finance-payments/:payment_id", financeAdmin, api.GetFinancePayment)
 
-			// budgets view -> campaign_ops + finance_admin
-			adminGroup.GET("/finance-docs/:doc_id/project-budgets", campaignOpsOrFinanceAdmin, api.ListProjectBudgetsByFinanceDoc)
-			adminGroup.GET("/issue-requests/:issue_request_id/issue-budgets", campaignOpsOrFinanceAdmin, api.ListIssueBudgetsByIssueRequest)
+				// issue_request edit/approve -> campaign_ops; view -> both
+				adminGroup.POST("/finance-docs/:doc_id/issue-requests", campaignOps, api.CreateIssueRequest)
+				adminGroup.GET("/finance-docs/:doc_id/issue-requests", campaignOpsOrFinanceAdmin, api.ListIssueRequestsByDocID)
+				adminGroup.PUT("/finance-docs/:doc_id/issue-requests/:issue_request_id", campaignOps, api.UpdateIssueRequest)
+				adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/submission", campaignOps, api.SubmitIssueRequestForApproval)
+				adminGroup.PATCH("/finance-docs/:doc_id/issue-requests/:issue_request_id/approval", financeAdmin, api.ApproveIssueRequest)
 
-			// issue records view -> campaign_ops
-			adminGroup.GET("/issue-records/projects/:project_id/users/:user_id", campaignOps, api.ListAdminIssueRecords)
+				// budgets view -> campaign_ops + finance_admin
+				adminGroup.GET("/finance-docs/:doc_id/project-budgets", campaignOpsOrFinanceAdmin, api.ListProjectBudgetsByFinanceDoc)
+				adminGroup.GET("/issue-requests/:issue_request_id/issue-budgets", campaignOpsOrFinanceAdmin, api.ListIssueBudgetsByIssueRequest)
 
-			// payment-configs view -> both
-			adminGroup.GET("/payment-configs", campaignOpsOrFinanceAdmin, api.ListPaymentConfigs)
+				// issue records view -> campaign_ops
+				adminGroup.GET("/issue-records/projects/:project_id/users/:user_id", campaignOps, api.ListAdminIssueRecords)
 
-			// templates manage -> campaign_ops
-			adminGroup.POST("/templates", campaignOps, api.CreateTemplate)
-			adminGroup.GET("/templates", campaignOps, api.ListTemplates)
-			adminGroup.PUT("/templates/:template_id", campaignOps, api.UpdateTemplate)
-			adminGroup.PUT("/templates/:template_id/publish", campaignOps, api.PublishTemplate)
-		}
+				// payment-configs view -> both
+				adminGroup.GET("/payment-configs", campaignOpsOrFinanceAdmin, api.ListPaymentConfigs)
 
-		webGroup := basicGroup.Group("/web")
-		webGroup.Use(commonauth.RequireUser())
-		{
-			webGroup.GET("/issue-records/projects/:project_id", api.ListWebIssueRecords)
+				// templates manage -> campaign_ops
+				adminGroup.POST("/templates", campaignOps, api.CreateTemplate)
+				adminGroup.GET("/templates", campaignOps, api.ListTemplates)
+				adminGroup.PUT("/templates/:template_id", campaignOps, api.UpdateTemplate)
+				adminGroup.PUT("/templates/:template_id/publish", campaignOps, api.PublishTemplate)
+			}
+
+			webGroup := apiGroup.Group("/web")
+			webGroup.Use(commonauth.RequireUser())
+			{
+				webGroup.GET("/issue-records/projects/:project_id", api.ListWebIssueRecords)
+			}
 		}
 	}
 	return r
