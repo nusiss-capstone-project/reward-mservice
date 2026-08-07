@@ -25,6 +25,7 @@ func NewRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(log.RecoveryMiddleware())
 	r.Use(otelgin.Middleware(data.ServiceName))
+	r.Use(log.HTTPResponseIDMiddleware())
 	r.Use(corsMiddleware())
 
 	campaignOps := commonauth.RequireRole([]string{
@@ -119,10 +120,12 @@ func corsMiddleware() gin.HandlerFunc {
 		},
 		AllowHeaders: []string{
 			"Origin", "Content-Type", "Accept", "Authorization",
-			commonauth.HeaderInternalUserID, commonauth.HeaderUserRole, log.RequestIDHeader,
+			commonauth.HeaderInternalUserID, commonauth.HeaderUserRole,
+			log.RequestIDHeader, log.TraceIDHeader,
 		},
 		ExposeHeaders: []string{
-			"Content-Length", commonauth.HeaderInternalUserID, commonauth.HeaderUserRole, log.RequestIDHeader,
+			"Content-Length", commonauth.HeaderInternalUserID, commonauth.HeaderUserRole,
+			log.RequestIDHeader, log.TraceIDHeader,
 		},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

@@ -24,7 +24,10 @@ var (
 	Logger = zap.NewNop().Sugar()
 )
 
-const RequestIDHeader = "X-Request-ID"
+const (
+	RequestIDHeader = "X-Request-ID"
+	TraceIDHeader   = "X-Trace-ID"
+)
 
 func InitLogger() {
 	writeSyncer := getLogWriter()
@@ -57,18 +60,30 @@ func withTraceFields(logger *zap.SugaredLogger, ctx context.Context) *zap.Sugare
 	return logger.With("trace_id", traceID, "span_id", spanID)
 }
 
+func HTTPResponseIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := requestIDFromHeader(c.GetHeader(RequestIDHeader))
+		c.Request.Header.Set(RequestIDHeader, requestID)
+		c.Header(RequestIDHeader, requestID)
+
+		if traceID, _ := traceIDs(c.Request.Context()); traceID != "" {
+			c.Header(TraceIDHeader, traceID)
+		}
+		c.Next()
+	}
+}
+
 func HTTPObservabilityMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		requestID := requestIDFromHeader(c.GetHeader(RequestIDHeader))
-		c.Header(RequestIDHeader, requestID)
 
-		ctx := context.WithValue(c.Request.Context(), ctxKey{}, requestLogger(c, requestID))
+		ctx := context.WithValue(c.Request.Context(), ctxKey{}, Logger.With("request_id", requestID))
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 
 		durationMs := float64(time.Since(start).Microseconds()) / 1000
-		fields := requestFields(c, requestID, durationMs)
+		fields := accessLogFields(c, durationMs)
 		logger := WithContext(c.Request.Context())
 		if len(c.Errors) > 0 {
 			logger.Errorw("http request completed with errors", append(fields, "errors", c.Errors.String())...)
@@ -142,12 +157,11 @@ func getLogWriter() zapcore.WriteSyncer {
 	return zapcore.AddSync(file)
 }
 
-func requestLogger(c *gin.Context, requestID string) *zap.SugaredLogger {
-	fields := requestFields(c, requestID, 0)
-	return Logger.With(fields...)
+func requestFields(c *gin.Context, requestID string, durationMs float64) []any {
+	return append([]any{"request_id", requestID}, accessLogFields(c, durationMs)...)
 }
 
-func requestFields(c *gin.Context, requestID string, durationMs float64) []any {
+func accessLogFields(c *gin.Context, durationMs float64) []any {
 	route := c.FullPath()
 	if route == "" && c.Request != nil && c.Request.URL != nil {
 		route = c.Request.URL.Path
@@ -160,16 +174,12 @@ func requestFields(c *gin.Context, requestID string, durationMs float64) []any {
 			path = c.Request.URL.Path
 		}
 	}
-	traceID, spanID := traceIDs(c.Request.Context())
 	return []any{
-		"request_id", requestID,
 		"method", method,
 		"path", path,
 		"route", route,
 		"status", c.Writer.Status(),
 		"duration_ms", durationMs,
-		"trace_id", traceID,
-		"span_id", spanID,
 	}
 }
 

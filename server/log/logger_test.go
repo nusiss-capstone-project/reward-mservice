@@ -2,8 +2,11 @@ package log
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -54,4 +57,35 @@ func TestWithContextAlwaysHasTraceKeys(t *testing.T) {
 	assert.Contains(t, fields, "span_id")
 	assert.Equal(t, "", fields["trace_id"])
 	assert.Equal(t, "", fields["span_id"])
+}
+
+func TestHTTPResponseIDMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+	})
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		ctx, span := otel.Tracer("test").Start(c.Request.Context(), "http")
+		defer span.End()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	r.Use(HTTPResponseIDMiddleware())
+	r.GET("/ping", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	req.Header.Set(RequestIDHeader, "req-fixed")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, "req-fixed", w.Header().Get(RequestIDHeader))
+	assert.NotEmpty(t, w.Header().Get(TraceIDHeader))
 }
