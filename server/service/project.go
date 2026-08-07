@@ -12,8 +12,6 @@ import (
 	"github.com/nusiss-capstone-project/reward-mservice/server/repository/model"
 )
 
-const defaultCreator = "admin"
-
 type ProjectService interface {
 	CreateProject(ctx context.Context, req *data.CreateProjectRequest) (int64, error)
 	ListProjects(ctx context.Context, page, size int) (*data.PageResult, error)

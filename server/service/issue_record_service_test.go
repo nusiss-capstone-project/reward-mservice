@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/nusiss-capstone-project/reward-mservice/common/rewardpb"
 	"github.com/nusiss-capstone-project/reward-mservice/server/errs"
@@ -1385,4 +1386,212 @@ func TestExecuteRewardDistributionBusinessFailureEmptyReason(t *testing.T) {
 
 	err := svc.ExecuteRewardDistribution(context.Background(), 100)
 	assert.NoError(t, err)
+}
+
+func TestListIssueRecordsByProjectAndUserSuccess(t *testing.T) {
+	initServiceTestEnv()
+	issueRecordDao := new(mocks.IssueRecordDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	createdAt := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	issueRecordDao.On("ListByProjectIDAndUserID", mock.Anything, int64(20), int64(10)).Return([]*model.IssueRecord{
+		{
+			VoucherID:    "v-1",
+			VoucherType:  util.VoucherTypeCrypto,
+			Unit:         util.UnitCryptoUSDT,
+			RewardAmount: "1.5",
+			IssueStatus:  model.IssueRecordStatusIssued,
+			CreatedAt:    createdAt,
+		},
+	}, nil).Once()
+
+	items, err := svc.ListIssueRecordsByProjectAndUser(context.Background(), 20, 10)
+	assert.NoError(t, err)
+	assert.Len(t, items, 1)
+	assert.Equal(t, "v-1", items[0].VoucherID)
+	assert.Equal(t, "1.5", items[0].RewardAmount)
+	assert.Equal(t, model.IssueRecordStatusIssued, items[0].Status)
+	assert.Equal(t, util.FormatDateTime(createdAt), items[0].CreatedAt)
+}
+
+func TestListIssueRecordsByProjectAndUserValidation(t *testing.T) {
+	initServiceTestEnv()
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	_, err := svc.ListIssueRecordsByProjectAndUser(context.Background(), 0, 10)
+	assert.Error(t, err)
+	_, err = svc.ListIssueRecordsByProjectAndUser(context.Background(), 20, 0)
+	assert.Error(t, err)
+}
+
+func TestListIssueRecordsByProjectAndUserDAOError(t *testing.T) {
+	initServiceTestEnv()
+	issueRecordDao := new(mocks.IssueRecordDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), issueRecordDao, new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+
+	issueRecordDao.On("ListByProjectIDAndUserID", mock.Anything, int64(20), int64(10)).
+		Return(nil, assert.AnError).Once()
+
+	_, err := svc.ListIssueRecordsByProjectAndUser(context.Background(), 20, 10)
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInternalError, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestTemplateNotFound(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+	templateDao.On("GetByID", mock.Anything, int64(7)).Return(nil, nil).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1", UserId: 10, ProjectId: 20, TemplateId: 7,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeTemplateNotFound, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestTemplateNotPublished(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+	templateDao.On("GetByID", mock.Anything, int64(7)).Return(&model.Template{
+		ID: 7, Status: model.TemplateStatusDraft,
+	}, nil).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1", UserId: 10, ProjectId: 20, TemplateId: 7,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.CodeInvalidRequest, appErr.Code)
+}
+
+func TestProcessVoucherIssueRequestTemplateLoadError(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+	templateDao.On("GetByID", mock.Anything, int64(7)).Return(nil, assert.AnError).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1", UserId: 10, ProjectId: 20, TemplateId: 7,
+	})
+	assert.Error(t, err)
+}
+
+func TestProcessVoucherIssueRequestInvalidTemplateConfig(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+	templateDao.On("GetByID", mock.Anything, int64(7)).Return(&model.Template{
+		ID: 7, Type: model.TemplateTypeFixed, Config: []byte("{"), Status: model.TemplateStatusPublished,
+	}, nil).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1", UserId: 10, ProjectId: 20, TemplateId: 7,
+	})
+	assert.Error(t, err)
+	var appErr *errs.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, errs.MsgInvalidTemplateConfig, appErr.Message)
+}
+
+func TestProcessVoucherIssueRequestMissingMetric(t *testing.T) {
+	initServiceTestEnv()
+	templateDao := new(mocks.TemplateDao)
+	svc := newIssueRecordTestService(
+		new(mocks.RewardRequestDao), new(mocks.IssueRecordDao), new(mocks.ProjectDao),
+		new(mocks.ProjectBudgetDao), new(mocks.IssueBudgetDao),
+		new(mockRewardExecuteProducer), new(mockRewardResultProducer),
+		new(mockRiskChecker), new(mockVoucherIssuer),
+	)
+	svc.templateDao = templateDao
+	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{BaseMetric: "net_deposit", Rate: 0.1})
+	templateDao.On("GetByID", mock.Anything, int64(8)).Return(&model.Template{
+		ID: 8, Type: model.TemplateTypeDynamic, Config: dynamicConfig, Status: model.TemplateStatusPublished,
+	}, nil).Once()
+
+	err := svc.ProcessVoucherIssueRequest(context.Background(), &rewardpb.RewardDistributionRequest{
+		ClientRefId: "ref-1", UserId: 10, ProjectId: 20, TemplateId: 8,
+	})
+	assert.Error(t, err)
+}
+
+func TestCalculateTemplateRewardAmountBranches(t *testing.T) {
+	initServiceTestEnv()
+
+	_, err := calculateFixedTemplateRewardAmount([]byte(`{"amount":"bad"}`))
+	assert.Error(t, err)
+
+	_, err = calculateTemplateRewardAmount(&model.Template{Type: "UNKNOWN"}, nil)
+	assert.Error(t, err)
+
+	_, err = parseAndValidateDynamicTemplateConfig([]byte(`{"base_metric":"","rate":0}`))
+	assert.Error(t, err)
+
+	_, err = parseRewardMetricValue("net_deposit", map[string]string{"net_deposit": "x"})
+	assert.Error(t, err)
+
+	dynamicConfig, _ := json.Marshal(model.DynamicTemplateConfig{
+		BaseMetric: "net_deposit", Rate: 0.1, Cap: "bad",
+	})
+	_, err = calculateDynamicTemplateRewardAmount(dynamicConfig, map[string]string{"net_deposit": "10"})
+	assert.Error(t, err)
+
+	underCapConfig, _ := json.Marshal(model.DynamicTemplateConfig{
+		BaseMetric: "net_deposit", Rate: 0.1, Cap: "100",
+	})
+	amount, err := calculateDynamicTemplateRewardAmount(underCapConfig, map[string]string{"net_deposit": "10"})
+	assert.NoError(t, err)
+	assert.Equal(t, "1", amount.FloatString(0))
+
+	noCapConfig, _ := json.Marshal(model.DynamicTemplateConfig{
+		BaseMetric: "net_deposit", Rate: 0.2,
+	})
+	amount, err = calculateDynamicTemplateRewardAmount(noCapConfig, map[string]string{"net_deposit": "10"})
+	assert.NoError(t, err)
+	assert.Equal(t, "2", amount.FloatString(0))
 }

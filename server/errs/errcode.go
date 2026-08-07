@@ -32,6 +32,7 @@ const (
 	MsgDocIDRequired                     = "doc_id is required"
 	MsgStatusRequired                    = "status is required"
 	MsgInvalidAmount                     = "invalid amount"
+	MsgInvalidTemplateConfig             = "invalid template config"
 	MsgOnlyDraftOrRejectedToToApprove    = "only DRAFT or REJECTED can move to TO_APPROVE"
 	MsgOnlyToApproveToApprovedOrRejected = "only TO_APPROVE can move to APPROVED or REJECTED"
 	MsgUnsupportedTargetStatus           = "unsupported target status"

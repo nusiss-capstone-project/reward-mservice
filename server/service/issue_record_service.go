@@ -724,45 +724,71 @@ func (s *IssueRecordServiceImpl) resolveRewardAmountFromTemplate(
 func calculateTemplateRewardAmount(template *model.Template, metrics map[string]string) (*big.Rat, error) {
 	switch template.Type {
 	case model.TemplateTypeFixed:
-		var cfg model.FixTemplateConfig
-		if err := json.Unmarshal(template.Config, &cfg); err != nil {
-			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
-		}
-		amount, err := util.ParseAmount(cfg.Amount)
-		if err != nil {
-			return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
-		}
-		return amount, nil
+		return calculateFixedTemplateRewardAmount(template.Config)
 	case model.TemplateTypeDynamic:
-		var cfg model.DynamicTemplateConfig
-		if err := json.Unmarshal(template.Config, &cfg); err != nil {
-			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
-		}
-		if strings.TrimSpace(cfg.BaseMetric) == "" || cfg.Rate <= 0 {
-			return nil, errs.New(errs.CodeInvalidRequest, "invalid template config")
-		}
-		rawMetric, ok := metrics[cfg.BaseMetric]
-		if !ok || strings.TrimSpace(rawMetric) == "" {
-			return nil, errs.New(errs.CodeInvalidRequest, "metric is required: "+cfg.BaseMetric)
-		}
-		metricValue, err := util.ParseAmount(rawMetric)
-		if err != nil {
-			return nil, errs.New(errs.CodeInvalidRequest, "invalid metric value: "+cfg.BaseMetric)
-		}
-		amount := new(big.Rat).Mul(metricValue, new(big.Rat).SetFloat64(cfg.Rate))
-		if strings.TrimSpace(cfg.Cap) != "" {
-			capAmount, err := util.ParseAmount(cfg.Cap)
-			if err != nil {
-				return nil, errs.New(errs.CodeInvalidRequest, "invalid template cap")
-			}
-			if amount.Cmp(capAmount) > 0 {
-				amount = capAmount
-			}
-		}
-		return amount, nil
+		return calculateDynamicTemplateRewardAmount(template.Config, metrics)
 	default:
 		return nil, errs.New(errs.CodeInvalidRequest, "invalid template type")
 	}
+}
+
+func calculateFixedTemplateRewardAmount(raw []byte) (*big.Rat, error) {
+	var cfg model.FixTemplateConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	amount, err := util.ParseAmount(cfg.Amount)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidAmount)
+	}
+	return amount, nil
+}
+
+func calculateDynamicTemplateRewardAmount(raw []byte, metrics map[string]string) (*big.Rat, error) {
+	cfg, err := parseAndValidateDynamicTemplateConfig(raw)
+	if err != nil {
+		return nil, err
+	}
+	metricValue, err := parseRewardMetricValue(cfg.BaseMetric, metrics)
+	if err != nil {
+		return nil, err
+	}
+
+	amount := new(big.Rat).Mul(metricValue, new(big.Rat).SetFloat64(cfg.Rate))
+	if strings.TrimSpace(cfg.Cap) == "" {
+		return amount, nil
+	}
+	capAmount, err := util.ParseAmount(cfg.Cap)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid template cap")
+	}
+	if amount.Cmp(capAmount) > 0 {
+		return capAmount, nil
+	}
+	return amount, nil
+}
+
+func parseAndValidateDynamicTemplateConfig(raw []byte) (*model.DynamicTemplateConfig, error) {
+	var cfg model.DynamicTemplateConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	if strings.TrimSpace(cfg.BaseMetric) == "" || cfg.Rate <= 0 {
+		return nil, errs.New(errs.CodeInvalidRequest, errs.MsgInvalidTemplateConfig)
+	}
+	return &cfg, nil
+}
+
+func parseRewardMetricValue(baseMetric string, metrics map[string]string) (*big.Rat, error) {
+	rawMetric, ok := metrics[baseMetric]
+	if !ok || strings.TrimSpace(rawMetric) == "" {
+		return nil, errs.New(errs.CodeInvalidRequest, "metric is required: "+baseMetric)
+	}
+	metricValue, err := util.ParseAmount(rawMetric)
+	if err != nil {
+		return nil, errs.New(errs.CodeInvalidRequest, "invalid metric value: "+baseMetric)
+	}
+	return metricValue, nil
 }
 
 func generateVoucherID() string {
