@@ -41,6 +41,19 @@ definitions:
       err_msg:
         type: string
     type: object
+  data.BudgetVO:
+    properties:
+      available_amount:
+        type: string
+      issued_amount:
+        type: string
+      total_amount:
+        type: string
+      unit:
+        type: string
+      voucher_type:
+        type: string
+    type: object
   data.CreateFinanceDocRequest:
     properties:
       application_detail:
@@ -48,8 +61,6 @@ definitions:
           $ref: '#/definitions/data.ApplicationDetailItemVO'
         minItems: 1
         type: array
-      creator:
-        type: string
       description:
         type: string
       project_id:
@@ -79,8 +90,6 @@ definitions:
   data.CreateIssueRequestRequest:
     properties:
       amount:
-        type: string
-      creator:
         type: string
       expense_type:
         enum:
@@ -119,6 +128,9 @@ definitions:
       config:
         example: '{"amount":"100.00"}'
         type: string
+      title:
+        example: Welcome Bonus
+        type: string
       type:
         enum:
         - FIXED
@@ -133,6 +145,7 @@ definitions:
         type: string
     required:
     - config
+    - title
     - type
     - unit
     - voucher_type
@@ -149,8 +162,6 @@ definitions:
           $ref: '#/definitions/data.ApplicationDetailItemVO'
         type: array
       created_at:
-        type: string
-      creator:
         type: string
       description:
         type: string
@@ -192,13 +203,26 @@ definitions:
       updated_at:
         type: string
     type: object
+  data.IssueRecordVO:
+    properties:
+      created_at:
+        type: string
+      reward_amount:
+        type: string
+      status:
+        type: string
+      unit:
+        type: string
+      voucher_id:
+        type: string
+      voucher_type:
+        type: string
+    type: object
   data.IssueRequestVO:
     properties:
       amount:
         type: string
       created_at:
-        type: string
-      creator:
         type: string
       expense_type:
         type: string
@@ -296,6 +320,9 @@ definitions:
         - PUBLISHED
         example: DRAFT
         type: string
+      title:
+        example: Welcome Bonus
+        type: string
       type:
         enum:
         - FIXED
@@ -362,6 +389,9 @@ definitions:
       config:
         example: '{"amount":"100.00"}'
         type: string
+      title:
+        example: Welcome Bonus
+        type: string
     required:
     - config
     type: object
@@ -382,6 +412,10 @@ paths:
         in: query
         name: size
         type: integer
+      - description: Status filter
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -697,6 +731,10 @@ paths:
         in: query
         name: size
         type: integer
+      - description: Status filter
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -915,6 +953,45 @@ paths:
       summary: Submit issue request
       tags:
       - Admin-IssueRequest
+  /reward-ms/v1/admin/finance-docs/{doc_id}/project-budgets:
+    get:
+      description: List project budgets for a finance doc. campaign_ops, finance_admin
+        and admin.
+      parameters:
+      - description: Finance doc ID
+        in: path
+        name: doc_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.BudgetVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List project budgets by finance doc
+      tags:
+      - Admin-Budget
   /reward-ms/v1/admin/finance-docs/{doc_id}/submission:
     patch:
       consumes:
@@ -958,6 +1035,85 @@ paths:
       summary: Submit finance doc for approval
       tags:
       - Admin-FinanceDoc
+  /reward-ms/v1/admin/issue-records/projects/{project_id}/users/{user_id}:
+    get:
+      description: List all issue records for a user in a project. campaign_ops and
+        admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.IssueRecordVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List issue records by project and user
+      tags:
+      - Admin-IssueRecord
+  /reward-ms/v1/admin/issue-requests/{issue_request_id}/issue-budgets:
+    get:
+      description: List issue budgets for an issue request. campaign_ops, finance_admin
+        and admin.
+      parameters:
+      - description: Issue request ID
+        in: path
+        name: issue_request_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.BudgetVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List issue budgets by issue request
+      tags:
+      - Admin-Budget
   /reward-ms/v1/admin/payment-configs:
     get:
       description: List payment address and account options for finance doc creation.
@@ -1307,4 +1463,38 @@ paths:
       summary: Item Query with ID
       tags:
       - Item
+  /reward-ms/v1/web/issue-records/projects/{project_id}:
+    get:
+      description: List all issue records for the authenticated user in a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.IssueRecordVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List my issue records by project
+      tags:
+      - Web-IssueRecord
 swagger: "2.0"

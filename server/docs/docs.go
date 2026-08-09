@@ -39,6 +39,12 @@ const docTemplate = `{
                         "description": "Page size",
                         "name": "size",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status filter",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -546,6 +552,12 @@ const docTemplate = `{
                         "description": "Page size",
                         "name": "size",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status filter",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -891,6 +903,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/reward-ms/v1/admin/finance-docs/{doc_id}/project-budgets": {
+            "get": {
+                "description": "List project budgets for a finance doc. campaign_ops, finance_admin and admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-Budget"
+                ],
+                "summary": "List project budgets by finance doc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance doc ID",
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.BudgetVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/reward-ms/v1/admin/finance-docs/{doc_id}/submission": {
             "patch": {
                 "description": "Move finance doc from DRAFT or REJECTED to TO_APPROVE.",
@@ -934,6 +1008,131 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/data.UpdateFinanceDocResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/issue-records/projects/{project_id}/users/{user_id}": {
+            "get": {
+                "description": "List all issue records for a user in a project. campaign_ops and admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-IssueRecord"
+                ],
+                "summary": "List issue records by project and user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.IssueRecordVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/reward-ms/v1/admin/issue-requests/{issue_request_id}/issue-budgets": {
+            "get": {
+                "description": "List issue budgets for an issue request. campaign_ops, finance_admin and admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin-Budget"
+                ],
+                "summary": "List issue budgets by issue request",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Issue request ID",
+                        "name": "issue_request_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.BudgetVO"
+                                            }
                                         }
                                     }
                                 }
@@ -1534,6 +1733,62 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/reward-ms/v1/web/issue-records/projects/{project_id}": {
+            "get": {
+                "description": "List all issue records for the authenticated user in a project.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Web-IssueRecord"
+                ],
+                "summary": "List my issue records by project",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.IssueRecordVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1600,6 +1855,26 @@ const docTemplate = `{
                 }
             }
         },
+        "data.BudgetVO": {
+            "type": "object",
+            "properties": {
+                "available_amount": {
+                    "type": "string"
+                },
+                "issued_amount": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "voucher_type": {
+                    "type": "string"
+                }
+            }
+        },
         "data.CreateFinanceDocRequest": {
             "type": "object",
             "required": [
@@ -1613,9 +1888,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/data.ApplicationDetailItemVO"
                     }
-                },
-                "creator": {
-                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -1664,9 +1936,6 @@ const docTemplate = `{
                 "amount": {
                     "type": "string"
                 },
-                "creator": {
-                    "type": "string"
-                },
                 "expense_type": {
                     "type": "string",
                     "enum": [
@@ -1712,6 +1981,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "config",
+                "title",
                 "type",
                 "unit",
                 "voucher_type"
@@ -1720,6 +1990,10 @@ const docTemplate = `{
                 "config": {
                     "type": "string",
                     "example": "{\"amount\":\"100.00\"}"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Welcome Bonus"
                 },
                 "type": {
                     "type": "string",
@@ -1757,9 +2031,6 @@ const docTemplate = `{
                     }
                 },
                 "created_at": {
-                    "type": "string"
-                },
-                "creator": {
                     "type": "string"
                 },
                 "description": {
@@ -1823,6 +2094,29 @@ const docTemplate = `{
                 }
             }
         },
+        "data.IssueRecordVO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "reward_amount": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "voucher_id": {
+                    "type": "string"
+                },
+                "voucher_type": {
+                    "type": "string"
+                }
+            }
+        },
         "data.IssueRequestVO": {
             "type": "object",
             "properties": {
@@ -1830,9 +2124,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "type": "string"
-                },
-                "creator": {
                     "type": "string"
                 },
                 "expense_type": {
@@ -1980,6 +2271,10 @@ const docTemplate = `{
                     ],
                     "example": "DRAFT"
                 },
+                "title": {
+                    "type": "string",
+                    "example": "Welcome Bonus"
+                },
                 "type": {
                     "type": "string",
                     "enum": [
@@ -2079,6 +2374,10 @@ const docTemplate = `{
                 "config": {
                     "type": "string",
                     "example": "{\"amount\":\"100.00\"}"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Welcome Bonus"
                 }
             }
         }
