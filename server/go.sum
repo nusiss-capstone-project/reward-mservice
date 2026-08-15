@@ -129,8 +129,8 @@ github.com/nusiss-capstone-project/asset-mservice/client v0.0.1 h1:8yVKqFP9o04s/
 github.com/nusiss-capstone-project/asset-mservice/client v0.0.1/go.mod h1:3g5GvXzHwztmym1tTAq8rbHd1xCXdjuVyh3C8+Qmzes=
 github.com/nusiss-capstone-project/asset-mservice/common v0.0.2 h1:HFrF8VNkRvRg7rg7eHacFfZm44Ar9tgh0wBiMo9QqO0=
 github.com/nusiss-capstone-project/asset-mservice/common v0.0.2/go.mod h1:ZPaHqTSb2U/iPZBrcHfFxIAaGEBXsTGniUpOt8sbmyA=
-github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4 h1:uwsxL5cSLViFXvhcxHq0iHaGesQYGbWB1/U8aadfCLU=
-github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4/go.mod h1:NI9LLqL+frasX8a7FHcbgbWsddF7FzJf4SkPWzdPgUU=
+github.com/nusiss-capstone-project/identity-mservice/common v0.0.4 h1:87ahb5+SXI0/g2BJ+YUcM4xR72JC8TFZlxGxkp6TcU8=
+github.com/nusiss-capstone-project/identity-mservice/common v0.0.4/go.mod h1:PndAMe2Kgh4whsJ/oP+oShEbJJxrY32kI9+pgFb6pwo=
 github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.2 h1:Ox2FDzwfGTtqJW0X3LPg6fjkcM7zjFHjYu6l0hpY1kY=
 github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.2/go.mod h1:5xBkFaOK6pjww7Akc95a5wLT3YkDkU/F6zA3qw9oX/E=
 github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=

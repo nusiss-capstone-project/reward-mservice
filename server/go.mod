@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/nusiss-capstone-project/asset-mservice/client v0.0.1
 	github.com/nusiss-capstone-project/asset-mservice/common v0.0.2
-	github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4
+	github.com/nusiss-capstone-project/identity-mservice/common v0.0.4
 	github.com/nusiss-capstone-project/reward-mservice/common v0.0.2-alpha.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/spf13/viper v1.21.0
