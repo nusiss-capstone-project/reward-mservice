@@ -67,6 +67,8 @@ jobs:
           context: ./server
           file: ./server/Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_REPOSITORY }}:${{ steps.version.outputs.tag }}
           cache-from: type=gha
