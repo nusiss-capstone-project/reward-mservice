@@ -1,38 +1,35 @@
-# Use the official Go image with version 1.25.10
-FROM golang:1.25.10-alpine AS builder 
+# Build stage
+FROM golang:1.25.13-alpine AS builder
 
-RUN apk update && \
-    apk add --no-cache \
-    curl \
-    "zlib>=1.3.2-r0"
-    
-# Set the working directory inside the container
+RUN apk add --no-cache git ca-certificates "zlib>=1.3.2-r0"
+
 WORKDIR /app
 
-# Copy the Go module files
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Download the dependencies
-RUN go mod tidy
-
-# Copy the rest of the application code
 COPY . .
 
-# Build the Go application and prepare runtime permissions
-RUN CGO_ENABLED=0 GOOS=linux \
-    go build -a -ldflags="-w -s" -o main main.go && \
-    go clean -cache -modcache && \
-    adduser -D -h /home/appuser appuser && \
-    mkdir -p logs && \
-    chown -R appuser:appuser config/ && \
-    chown -R appuser:appuser logs/ && \
-    chmod +r config/* && \
-    chmod +w logs && \
-    chmod +x main
+# Build the Go application
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -mod=readonly -trimpath -ldflags="-w -s" -o /out/main main.go && \
+    go clean -cache -modcache
 
-# EXPOSE 8080
+# Runtime stage
+FROM alpine:3.22
+
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates tzdata && \
+    adduser -D -h /home/appuser appuser && \
+    mkdir -p /app/logs /app/config /app/resources && \
+    chown -R appuser:appuser /app
+
+WORKDIR /app
+
+COPY --from=builder --chown=appuser:appuser /out/main /app/main
+COPY --from=builder --chown=appuser:appuser /app/config/ /app/config/
+COPY --from=builder --chown=appuser:appuser /app/resources/ /app/resources/
 
 USER appuser
 
-# Command to run the application
-CMD ["./main"]
+CMD ["/app/main"]
